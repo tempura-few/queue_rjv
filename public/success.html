@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>จองคิวสำเร็จ</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader"></header>
+
+  <main class="container">
+    <div class="wizard-card success-card" id="successCard">
+      <p class="hint">กำลังโหลดข้อมูลการจอง…</p>
+    </div>
+  </main>
+
+  <footer class="site-footer"><div class="container"><div id="footerName"></div></div></footer>
+
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script>
+    renderHeader("booking");
+    const fn = document.getElementById("footerName"); if (fn) fn.textContent = CONFIG.hospitalName;
+    const code = new URLSearchParams(location.search).get("code") || "";
+
+    api("/api/booking/" + encodeURIComponent(code)).then(({ booking: b }) => {
+      document.getElementById("successCard").innerHTML = `
+        <div class="ok-emoji">✅</div>
+        <h2 style="margin:0 0 2px; color:var(--ink);">จองคิวสำเร็จ</h2>
+        <p class="hint">กรุณาบันทึกรหัสด้านล่างนี้ไว้ และมาถึงก่อนเวลานัด 15 นาที</p>
+        <div class="code-box">
+          <div class="qno-big">คิวที่ ${b.qno}</div>
+          <div class="svc-line">${b.icon} ${esc(b.service)}</div>
+          <div class="dt-line">${fmtFullTh(b.date)} · เวลา ${b.time} น.</div>
+          <div class="ref">รหัสการจอง: <b>${b.code}</b></div>
+          ${b.agencyCode ? `<div class="ref">จองผ่านตัวแทน: <b>${esc(b.agencyCode)}</b></div>` : ""}
+          <div class="ref">สถานะ: <b>${STATUS_META[b.status] ? STATUS_META[b.status].label : b.status}</b></div>
+        </div>
+        <p class="hint" style="margin-top:14px;">หากมาไม่ได้ กรุณาแจ้งเคาน์เตอร์หรือโทร ${CONFIG.phone} เพื่อยกเลิก/เลื่อนนัด</p>
+        <a class="btn btn-ghost" href="index.html" style="margin-top:6px;">กลับหน้าแรก</a>`;
+      document.title = "จองคิวสำเร็จ — " + b.code;
+    }).catch((e) => {
+      document.getElementById("successCard").innerHTML = `
+        <div class="ok-emoji">😕</div>
+        <h2>ไม่พบข้อมูลการจอง</h2>
+        <p class="hint">${esc(e.message)}</p>
+        <a class="btn btn-ghost" href="index.html">กลับหน้าแรก</a>`;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>จองคิวออนไลน์</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader"></header>
+
+  <section class="hero">
+    <div class="container">
+      <span class="hero-eyebrow">🩺 ระบบจองคิวล่วงหน้า</span>
+      <h1>จองคิวก่อนถึงโรงพยาบาล<br />ไม่ต้องยืนรอ ไม่ต้องโทร</h1>
+      <p id="heroTagline">เลือกบริการ เลือกวันและเวลาที่สะดวก แล้วมาถึงก็เข้าตรวจได้เลย</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#services">เลือกบริการที่จองได้</a>
+        <a class="btn btn-ghost" href="login.html">หน้าเจ้าหน้าที่</a>
+      </div>
+    </div>
+  </section>
+
+  <main class="container">
+    <h2 class="section-title" id="services">บริการที่จองล่วงหน้าได้</h2>
+    <p class="section-sub">คลิกเพื่อเริ่มจองคิว — เลือกวัน เวลา และกรอกข้อมูลจบในหน้าเดียว</p>
+    <div class="service-grid" id="serviceGrid"><p class="hint">กำลังโหลดบริการ…</p></div>
+
+    <h2 class="section-title">ใช้งานง่ายใน 3 ขั้นตอน</h2>
+    <p class="section-sub">ออกแบบให้คนไข้จองเองจบภายใน 1 นาที จากมือถือ</p>
+    <div class="steps-row">
+      <div class="step-card"><span class="step-num">1</span><div><h4>เลือกบริการและช่วงเวลา</h4><p>เห็นที่นั่งว่างแบบเรียลไทม์ เลือกเวลาที่สะดวกล่วงหน้าได้ถึง 14 วัน</p></div></div>
+      <div class="step-card"><span class="step-num">2</span><div><h4>รับรหัสการจอง + เลขคิว</h4><p>ระบบออกรหัสการจองและเลขคิวของวันนั้นทันที บันทึกหรือแคปหน้าจอไว้</p></div></div>
+      <div class="step-card"><span class="step-num">3</span><div><h4>มาถึงก็เข้าตรวจ</h4><p>แสดงรหัสการจองที่เคาน์เตอร์ ลดเวลารอลงทะเบียนและคิวรอ</p></div></div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div id="footerName"></div>
+      <div class="footer-meta"><span id="footerPhone"></span></div>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script>
+    document.title = "จองคิวออนไลน์ — " + CONFIG.hospitalName;
+    renderHeader("home");
+    document.getElementById("heroTagline").textContent = CONFIG.tagline;
+    const fn = document.getElementById("footerName"); if (fn) fn.textContent = CONFIG.hospitalName;
+    const fp = document.getElementById("footerPhone"); if (fp) fp.textContent = "โทร. " + CONFIG.phone;
+
+    api("/api/services")
+      .then(({ services }) => {
+        document.getElementById("serviceGrid").innerHTML = services
+          .map((s) => `
+            <a class="service-card" href="booking.html?service=${s.id}">
+              <span class="service-icon">${s.icon}</span>
+              <h3>${esc(s.name)}</h3>
+              <p>${esc(s.desc)}</p>
+              <span class="service-cta">จองคิว →</span>
+            </a>`)
+          .join("") || '<p class="hint">ขณะนี้ยังไม่เปิดให้จองออนไลน์</p>';
+      })
+      .catch(() => {
+        document.getElementById("serviceGrid").innerHTML = '<p class="hint">โหลดบริการไม่สำเร็จ ลองรีเฟรชอีกครั้ง</p>';
+      });
+  </script>
+</body>
+</html>

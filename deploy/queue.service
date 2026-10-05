@@ -1,0 +1,24 @@
+[Unit]
+Description=Hospital Queue System (ระบบจองคิว)
+After=network.target mysql.service mariadb.service
+
+[Service]
+WorkingDirectory=/opt/hospital-queue-app
+ExecStart=/usr/bin/node server.js
+# ---- ที่เก็บข้อมูล: MySQL (โหมดหลักของการติดตั้งจริง) ----
+# ★ แก้ MYSQL_PASSWORD เป็นรหัสที่ตั้งในขั้นตอนสร้างฐานข้อมูล (ดู deploy/IT-RUNBOOK.md ข้อ 3) ★
+Environment=STORAGE=mysql
+Environment=MYSQL_HOST=127.0.0.1
+Environment=MYSQL_PORT=3306
+Environment=MYSQL_USER=queueapp
+Environment=MYSQL_PASSWORD=CHANGE-ME-ตอนติดตั้ง
+Environment=MYSQL_DATABASE=hospital_queue
+Environment=PORT=8124
+Environment=TZ=Asia/Bangkok
+Restart=always
+RestartSec=3
+User=queueuser
+Group=queueuser
+
+[Install]
+WantedBy=multi-user.target

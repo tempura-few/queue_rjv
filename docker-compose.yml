@@ -1,0 +1,21 @@
+services:
+  queue:
+    build: .
+    container_name: hospital-queue
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8124:8124"   # เปิดเฉพาะภายในเครื่อง ให้ nginx ของเว็บ proxy เข้ามา (ตาม DEPLOY.md)
+    volumes:
+      - ./data:/app/data         # โหมด STORAGE=json ใช้โฟลเดอร์นี้ / โหมด mysql ไม่ใช้
+    environment:
+      - TZ=Asia/Bangkok
+      - PORT=8124
+      # ---- โหมดหลัก: MySQL/MariaDB (★แก้รหัสผ่านให้เป็นของจริงก่อนใช้★) ----
+      - STORAGE=mysql
+      - MYSQL_HOST=host.docker.internal   # ถ้า MySQL อยู่บนเครื่องโฮสต์ (Linux: ใช้ 172.17.0.1 หรือ --network host)
+      - MYSQL_PORT=3306
+      - MYSQL_USER=queueapp
+      - MYSQL_PASSWORD=CHANGE-ME
+      - MYSQL_DATABASE=hospital_queue
+      # หมายเหตุ: ผู้ใช้ queueapp ต้องมีสิทธิ์จากทั้ง 'localhost' และ '%' (container เข้ามาด้วย IP ภายใน)
+      # ถ้าอยากใช้โหมดไฟล์แทน: เปลี่ยน STORAGE=json แล้วลบ MYSQL_* ทิ้งได้เลย
