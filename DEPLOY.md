@@ -1,28 +1,30 @@
 # คู่มือติดตั้ง — ระบบจองคิว รพ.ราชเวช เชียงใหม่
 
-ระบบนี้เป็น Pure Node.js **ไม่มี dependency ใด ๆ** — ไม่ต้อง npm install
-สิ่งที่ต้องมีบนเซิร์ฟเวอร์: Node.js เวอร์ชัน 18 ขึ้นไปเท่านั้น
+ระบบนี้เป็น **Next.js (App Router)** — frontend React + API routes ในตัว
+สิ่งที่ต้องมีบนเซิร์ฟเวอร์: Node.js เวอร์ชัน 20 ขึ้นไป (หรือใช้ Docker ตามข้อ 4)
 
 ## 1. ติดตั้ง (5 นาที)
 
 ```bash
 # คัดลอกโฟลเดอร์ hospital-queue-app ทั้งโฟลเดอร์ขึ้นเซิร์ฟเวอร์ แล้ว:
 cd hospital-queue-app
-node server.js          # รันครั้งแรกจะสร้าง data/app-data.json ให้เอง
-                         # ผู้ใช้เริ่มต้น: admin / admin (หรือตามตัวแปร ADMIN_PASSWORD)
+npm install               # ติดตั้ง next/react (ครั้งเดียว)
+npm run build             # สร้าง production build
+PORT=8124 npm start       # รันครั้งแรกจะสร้าง data/app-data.json ให้เอง
+                          # ผู้ใช้เริ่มต้น: admin / admin (หรือตามตัวแปร ADMIN_PASSWORD)
 ```
 
 **สำคัญ — ทำทันทีหลังรันครั้งแรก:**
 
 ```bash
-node scripts/setpass.js admin <รหัสผ่านใหม่ที่ยาก>   # เปลี่ยนรหัส admin
-node scripts/useradd.js somchai "สมชาย ใจดี" <รหัส> counter   # เพิ่มเจ้าหน้าที่เคาน์เตอร์
+npm run setpass -- admin <รหัสผ่านใหม่ที่ยาก>          # เปลี่ยนรหัส admin
+npm run useradd -- somchai "สมชาย ใจดี" <รหัส> counter  # เพิ่มเจ้าหน้าที่เคาน์เตอร์
 ```
 
 - role `admin` = แก้ไขบริการ/ดูประวัติการใช้งานได้
 - role `counter` = รับคิว/ยืนยัน/เลื่อน/ยกเลิก/ค้นหา/ส่งออก CSV ได้ แต่แก้บริการไม่ได้
 
-แล้วแก้เบอร์โทรโรงพยาบาลที่ `public/config.js` (บรรทัด phone)
+แล้วแก้เบอร์โทรโรงพยาบาลที่ `lib/config.js` (บรรทัด phone)
 
 ## 2. รันถาวรด้วย systemd (Linux)
 
@@ -35,8 +37,9 @@ After=network.target
 
 [Service]
 WorkingDirectory=/opt/hospital-queue-app
-ExecStart=/usr/bin/node server.js
+ExecStart=/usr/bin/npm start
 Environment=PORT=8124
+Environment=NODE_ENV=production
 Restart=always
 User=queueuser
 

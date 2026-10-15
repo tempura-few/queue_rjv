@@ -3,3 +3,5 @@ data/
 dist/
 .DS_Store
 *.log
+.next/
+gui-test-screenshots/

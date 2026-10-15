@@ -2,7 +2,7 @@
 // (ทำงานตามโหมดเก็บข้อมูลที่ตั้งด้วย env STORAGE — เหมือน server ทุกอย่าง)
 "use strict";
 const crypto = require("crypto");
-const store = require("../store.js");
+const store = require("../lib/store.js");
 const [username, password] = process.argv.slice(2);
 (async () => {
   if (!username || !password || password.length < 6) {

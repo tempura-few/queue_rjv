@@ -4,7 +4,8 @@ After=network.target mysql.service mariadb.service
 
 [Service]
 WorkingDirectory=/opt/hospital-queue-app
-ExecStart=/usr/bin/node server.js
+ExecStart=/usr/bin/npm start
+Environment=NODE_ENV=production
 # ---- ที่เก็บข้อมูล: MySQL (โหมดหลักของการติดตั้งจริง) ----
 # ★ แก้ MYSQL_PASSWORD เป็นรหัสที่ตั้งในขั้นตอนสร้างฐานข้อมูล (ดู deploy/IT-RUNBOOK.md ข้อ 3) ★
 Environment=STORAGE=mysql

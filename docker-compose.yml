@@ -1,8 +1,32 @@
 services:
+  mysql:
+    image: mysql:8.4
+    container_name: hospital-queue-mysql
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Bangkok
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-dev-root-pass}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-hospital_queue}
+      - MYSQL_USER=${MYSQL_USER:-queueapp}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-dev-app-pass}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3306:3306"   # เปิดให้เครื่องโฮสต์ต่อเข้ามาดู/แบ็กอัปได้ (จะขึ้น production ให้เอาบรรทัดนี้ออก)
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
   queue:
     build: .
     container_name: hospital-queue
     restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8124:8124"   # เปิดเฉพาะภายในเครื่อง ให้ nginx ของเว็บ proxy เข้ามา (ตาม DEPLOY.md)
     volumes:
@@ -10,12 +34,19 @@ services:
     environment:
       - TZ=Asia/Bangkok
       - PORT=8124
-      # ---- โหมดหลัก: MySQL/MariaDB (★แก้รหัสผ่านให้เป็นของจริงก่อนใช้★) ----
+      # คีย์เซ็น JWT — ตั้งค่าถาวร token จึงไม่ตายทุกครั้งที่ restart (production: เปลี่ยนเป็นค่าของจริง)
+      - AUTH_SECRET=${AUTH_SECRET:-e8b6b53f48c056b67fd1c0adbc2d87d10777640d0f70ac0264c8d2f8cfe8aff0}
+      # - AUTH_TTL_HOURS=12         # อายุ token (ชม.) ค่าเริ่มต้น 12
+      # ---- โหมดหลัก: MySQL/MariaDB (ตัว compose นี้รัน MySQL คู่กันใน service "mysql" ด้านบน) ----
       - STORAGE=mysql
-      - MYSQL_HOST=host.docker.internal   # ถ้า MySQL อยู่บนเครื่องโฮสต์ (Linux: ใช้ 172.17.0.1 หรือ --network host)
+      - MYSQL_HOST=mysql
       - MYSQL_PORT=3306
-      - MYSQL_USER=queueapp
-      - MYSQL_PASSWORD=CHANGE-ME
-      - MYSQL_DATABASE=hospital_queue
-      # หมายเหตุ: ผู้ใช้ queueapp ต้องมีสิทธิ์จากทั้ง 'localhost' และ '%' (container เข้ามาด้วย IP ภายใน)
+      - MYSQL_USER=${MYSQL_USER:-queueapp}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-dev-app-pass}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-hospital_queue}
+      # ถ้าจะใช้ MySQL ที่ติดตั้งบนเครื่องโฮสต์แทน container: ลบ service mysql ออก แล้วเปลี่ยน MYSQL_HOST=host.docker.internal
+      # (Linux: ใช้ 172.17.0.1 หรือ --network host)
       # ถ้าอยากใช้โหมดไฟล์แทน: เปลี่ยน STORAGE=json แล้วลบ MYSQL_* ทิ้งได้เลย
+
+volumes:
+  mysql-data:
