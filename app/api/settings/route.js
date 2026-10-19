@@ -48,6 +48,15 @@ export async function PUT(request) {
     parts.push(`สิทธิการรักษา ${cleaned.length} รายการ`);
   }
 
+  if (body.channels !== undefined) {
+    // ช่องทางผู้ป่วย (master data): อาร์เรย์ชื่อช่องทาง — ตัดช่องว่าง/ลบซ้ำ (สูงสุด 30 รายการ, ชื่อไม่เกิน 40 ตัวอักษร)
+    const rows = Array.isArray(body.channels) ? body.channels : [];
+    const cleaned = [...new Set(rows.map((c) => String(c || "").trim().slice(0, 40)).filter(Boolean))].slice(0, 30);
+    if (!cleaned.length) return NextResponse.json({ error: "ต้องมีช่องทางอย่างน้อย 1 รายการ" }, { status: 400 });
+    core.db.settings.channels = cleaned;
+    parts.push(`ช่องทางผู้ป่วย ${cleaned.length} รายการ`);
+  }
+
   await core.store.saveSettings();
   await core.audit(user, "settings_update", parts.join(" · ") || "ไม่มีการเปลี่ยนค่า");
   return NextResponse.json({ settings: core.db.settings });

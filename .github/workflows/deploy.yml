@@ -1,0 +1,78 @@
+# Deploy ขึ้น production (เซิร์ฟเวอร์ Z.com · AlmaLinux 9 · Docker)
+#
+# แนวคิด: build บน GitHub → อัปโหลด image ขึ้นเซิร์ฟเวอร์ตรง ๆ (ไม่ใช้ registry
+# ไม่มี image สะสมที่ไหน จบรอบแล้วเหลือเฉพาะตัวที่กำลังรัน)
+#
+# ต้องตั้ง Secrets 2 ตัวที่ Settings → Secrets and variables → Actions:
+#   SSH_HOST         = 150.95.85.87
+#   SSH_PRIVATE_KEY  = private key เฉพาะของ CI (เต็มไฟล์ รวมบรรทัด BEGIN/END)
+#                      และต้องนำ public key ของคู่นี้ไปใส่ใน /root/.ssh/authorized_keys บนเซิร์ฟเวอร์ก่อน
+#   (login เป็น root — เซิร์ฟเวอร์ปิด password auth แล้ว ใช้ key เท่านั้น)
+#
+# ค่า runtime ของแอป (AUTH_SECRET / MYSQL_*) อยู่ใน /opt/queue_rjv/.env บนเซิร์ฟเวอร์ —
+# ตั้งครั้งเดียว ไม่ต้องแตะใน pipeline
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # กดรันเองได้จากหน้า Actions
+
+# กัน deploy ซ้อนกัน — รอคิวรอบก่อนจบ ไม่ตัดกันกลางคัน
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t hospital-queue:latest .
+
+      - name: บีบ image เป็นไฟล์เดียวพร้อมส่ง
+        run: docker save hospital-queue:latest | gzip > /tmp/queue-image.tar.gz
+
+      - name: เตรียม SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: อัปโหลด image + compose ขึ้นเซิร์ฟเวอร์
+        run: |
+          ssh root@"${{ secrets.SSH_HOST }}" "mkdir -p /opt/queue_rjv/data"
+          scp /tmp/queue-image.tar.gz root@"${{ secrets.SSH_HOST }}":/tmp/queue-image.tar.gz
+          scp deploy/docker-compose.prod.yml root@"${{ secrets.SSH_HOST }}":/opt/queue_rjv/docker-compose.yml
+
+      - name: วาง image ใหม่และรัน (docker load + compose up)
+        run: |
+          ssh root@"${{ secrets.SSH_HOST }}" bash -s <<'SCRIPT'
+          set -euo pipefail
+          cd /opt/queue_rjv
+          if [ ! -f .env ]; then
+            echo "!! ยังไม่มี /opt/queue_rjv/.env — สร้างก่อนจึงจะ deploy ได้" >&2
+            exit 1
+          fi
+          docker load -i /tmp/queue-image.tar.gz
+          rm -f /tmp/queue-image.tar.gz
+          docker compose up -d --remove-orphans
+          # ลบ image ตัวเก่าที่ถูกแทนแล้ว (กลายเป็น <none>) — เหลือเฉพาะตัวที่รันอยู่
+          docker image prune -f
+          SCRIPT
+
+      - name: ตรวจว่าแอปตอบ 200
+        run: |
+          sleep 10
+          ssh root@"${{ secrets.SSH_HOST }}" '
+            if ! curl -fsS -o /dev/null -w "แอปตอบ HTTP %{http_code}\n" http://127.0.0.1:8124/; then
+              echo "---- 20 บรรทัดล่าสุดของ container ----"
+              docker logs --tail 20 hospital-queue || true
+              exit 1
+            fi
+          '

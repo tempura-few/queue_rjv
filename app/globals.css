@@ -619,6 +619,12 @@ table.booking-table { width: 100%; border-collapse: collapse; min-width: 760px; 
 }
 .rep-range-btn:hover { border-color: var(--primary); color: var(--primary-dark); }
 .rep-range-btn.on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); }
+.rep-range-sep { align-self: center; color: var(--muted); font-size: 0.8rem; font-weight: 600; }
+.rep-date-input {
+  border: 1px solid var(--line); background: #fff; color: var(--ink);
+  font-family: inherit; font-size: 0.85rem; padding: 6px 10px; border-radius: 999px;
+}
+.rep-date-input:focus { outline: none; border-color: var(--primary); }
 .rep-two {
   display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
   margin-bottom: 14px; align-items: start;
@@ -816,7 +822,17 @@ table.booking-table { width: 100%; border-collapse: collapse; min-width: 760px; 
 }
 .side-item:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
 .side-item.active { background: #fff; color: var(--primary-dark); }
+.side-item { position: relative; }
 .side-item .si-ico { font-size: 1.15rem; }
+.side-badge {
+  position: absolute; top: 5px; right: 7px;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 999px; background: #dc2626; color: #fff;
+  font-size: 0.72rem; font-weight: 800; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px rgba(26, 35, 48, 0.9); /* ขอบสีพื้น sidebar ให้ตัวเลขเด่นแยกจากปุ่ม */
+}
+.side-item.active .side-badge { box-shadow: 0 0 0 2px #fff; }
 .side-item .si-sub {
   display: block;
   font-size: 0.75rem;
@@ -1243,3 +1259,24 @@ body.embed .wizard-card { box-shadow: none; border: 1px solid var(--line); }
 .pdpa-modal { max-width: 560px; }
 .pdpa-body { color: var(--text); font-size: 0.9rem; line-height: 1.65; }
 .pdpa-body p { margin: 0 0 10px; }
+/* ---------- รับคิวเป็นชุด: รายชื่อทีละคน ---------- */
+.batch-people { display: flex; flex-direction: column; gap: 8px; }
+.batch-person { display: grid; grid-template-columns: 26px 1.15fr 1fr 30px; gap: 8px; align-items: center; }
+.bp-num {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--primary-soft, #eef2ff); color: var(--primary-dark, #3730a3);
+  font-size: 0.8rem; font-weight: 700;
+}
+.bp-del { border: none; background: none; color: var(--muted); font-size: 1rem; cursor: pointer; padding: 4px; }
+.bp-del:hover { color: #c0392b; }
+.bp-add { align-self: flex-start; }
+@media (max-width: 560px) {
+  .batch-person { grid-template-columns: 26px 1fr 30px; }
+  .batch-person .form-input:nth-of-type(2) { grid-column: 2 / span 1; }
+}
+/* คลิกชื่อเพื่อดูรายละเอียด (แท็บนัดที่กำลังจะถึง / รอนัดหมาย) — เหมือนตารางคิวรายวัน */
+.upcoming-item .who-click { cursor: pointer; }
+.upcoming-item .who-click:hover b { text-decoration: underline; }
+.td-name-click { cursor: pointer; }
+.td-name-click:hover b { text-decoration: underline; }

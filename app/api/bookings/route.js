@@ -14,6 +14,8 @@ export async function GET(request) {
   const to = sp.get("to");
   const service = sp.get("service");
   const agency = sp.get("agency");
+  const channel = sp.get("channel");
+  const source = sp.get("source");
   const q = (sp.get("q") || "").trim().toLowerCase();
   // กรองวันที่ 2 แบบ: ?date=วันเดียว หรือ ?from=...&to=... (ช่วง — ใส่ฝั่งเดียวก็ได้)
   if ((from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) || (to && !/^\d{4}-\d{2}-\d{2}$/.test(to)))
@@ -31,6 +33,9 @@ export async function GET(request) {
   else if (date) list = list.filter((b) => b.date === date);
   else if (from || to) list = list.filter((b) => (!from || b.date >= from) && (!to || b.date <= to));
   if (agency && agency !== "all") list = list.filter((b) => b.agencyCode === agency); // กรองตามตัวแทน (ใช้ร่วมกับวันที่/ช่วงวันได้)
+  if (channel && channel !== "all") list = list.filter((b) => (channel === "none" ? !b.channel : b.channel === channel)); // กรองตามช่องทางผู้ป่วย (none = ไม่ระบุ)
+  if (source && source !== "all") list = list.filter((b) => b.source === source); // กรองตามแหล่งจอง (Website/Online/ตัวแทน/รอนัดหมาย)
+  if (core.isAgency(user)) list = list.filter((b) => b.agencyCode === user.agencyCode); // บัญชีตัวแทน: บังคับเห็นเฉพาะคิวของตัวเองเสมอไม่สนพารามิเตอร์
   if (service && service !== "all") list = list.filter((b) => b.serviceId === service);
   const status = sp.get("status");
   if (status && status !== "all") list = list.filter((b) => b.status === status);

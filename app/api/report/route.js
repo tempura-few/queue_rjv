@@ -8,19 +8,35 @@ const CHANNELS = ["online", "walkin", "agency", "callback"];
 const DOW_LABELS = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 
 // หน้ารายงานหลังบ้าน — GET /api/report?days=30 (หรือ days=all สำหรับทุกวันที่มีข้อมูล)
+// หรือระบุช่วงเอง: ?from=YYYY-MM-DD&to=YYYY-MM-DD (ใส่กลับด้านระบบสลับให้ จำกัดความยาว 731 วัน)
 // คืน KPI + ชุดข้อมูลพร้อมวาดกราฟ: แนวโน้มรายวัน, แยกช่องทาง/บริการ/ช่วงเวลา/วันสัปดาห์, ตัวแทน, รายการยอดนิยม
 export async function GET(request) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+  if (!core.can(user.role, "report.view")) return NextResponse.json({ error: "รายงาน — เฉพาะผู้ดูแลระบบ" }, { status: 403 });
   const sp = new URL(request.url).searchParams;
-  const isAll = sp.get("days") === "all";
-  const days = isAll ? 0 : Math.min(365, Math.max(1, Number(sp.get("days")) || 30));
-  const today = core.todayISO();
-  const from = isAll ? null : core.datePlus(-(days - 1)); // datePlus(n) = วันนี้ + n วัน
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const pFrom = DATE_RE.test(sp.get("from") || "") ? sp.get("from") : null;
+  const pTo = DATE_RE.test(sp.get("to") || "") ? sp.get("to") : null;
+  const isRange = !!(pFrom && pTo);
+  const isAll = !isRange && sp.get("days") === "all";
+  let from, to;
+  if (isRange) {
+    from = pFrom <= pTo ? pFrom : pTo; // ใส่กลับด้านระบบสลับให้อัตโนมัติ
+    to = pFrom <= pTo ? pTo : pFrom;
+    if ((new Date(to + "T00:00:00") - new Date(from + "T00:00:00")) / 86400000 > 731) {
+      return NextResponse.json({ error: "ช่วงวันที่ยาวเกินไป (รับสูงสุด 731 วัน)" }, { status: 400 });
+    }
+  } else {
+    const days = isAll ? 0 : Math.min(365, Math.max(1, Number(sp.get("days")) || 30));
+    to = core.todayISO();
+    from = isAll ? null : core.datePlus(-(days - 1)); // datePlus(n) = วันนี้ + n วัน
+  }
+  const today = core.todayISO(); // ใช้เป็นเส้นแบ่ง "ถึงวันนัดแล้วหรือยัง" (คิววันอนาคตยังตัดสินผลไม่ได้)
 
-  // โหมดช่วงวันที่: นับเฉพาะคิวที่มีวันนัดใน [from, วันนี้] — คำขอรอนัดหมาย (ไม่มีวันนัด) เข้าเฉพาะโหมด "ทั้งหมด"
-  const rows = core.db.bookings.filter((b) => (!from || (b.date && b.date >= from && b.date <= today)));
+  // โหมดช่วงวันที่: นับเฉพาะคิวที่มีวันนัดใน [from, to] — คำขอรอนัดหมาย (ไม่มีวันนัด) เข้าเฉพาะโหมด "ทั้งหมด"
+  const rows = core.db.bookings.filter((b) => (!from || (b.date && b.date >= from && b.date <= to)));
 
   const svcById = new Map(core.db.services.map((s) => [s.id, s]));
 
@@ -49,15 +65,15 @@ export async function GET(request) {
     else if (b.status === "noshow") missed++;
   }
 
-  // ---- แนวโน้มรายวัน (โหมด "ทั้งหมด" แสดงแค่ 90 วันล่าสุดเพื่อให้กราฟอ่านง่าย) ----
+  // ---- แนวโน้มรายวัน ("ทั้งหมด" และพรีเซ็ตวัน แสดงแค่ 90 วันล่าสุด / ช่วงที่เลือกเองแสดงเต็มช่วง) ----
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  const trendStart = from && from > core.datePlus(-89) ? from : core.datePlus(-89);
+  const trendStart = isRange ? from : (from && from > core.datePlus(-89) ? from : core.datePlus(-89));
   const daily = [];
   const dailyMap = new Map();
   for (let d = new Date(trendStart + "T00:00:00"); ; d.setDate(d.getDate() + 1)) {
     const dateISO = isoDay(d);
     dailyMap.set(dateISO, { date: dateISO, total: 0, online: 0, walkin: 0, agency: 0 });
-    if (dateISO === today) break;
+    if (dateISO === to) break;
   }
   for (const b of rows) {
     if (!b.date || b.date < trendStart) continue;
@@ -131,8 +147,8 @@ export async function GET(request) {
   const topItems = [...itemAgg.values()].sort((a, b) => b.total - a.total).slice(0, 8);
 
   return NextResponse.json({
-    mode: isAll ? "all" : "days",
-    from: from || null, to: today,
+    mode: isRange ? "range" : (isAll ? "all" : "days"),
+    from: from || null, to,
     kpi: {
       total: kpi.total, confirmed: kpi.confirmed, pending: kpi.pending, cancelled: kpi.cancelled, noshow: kpi.noshow,
       todayTotal: kpi.todayTotal, unique: kpi.uniquePatients.size,

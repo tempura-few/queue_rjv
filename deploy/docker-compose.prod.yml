@@ -1,0 +1,35 @@
+# compose สำหรับ production — ถูก GitHub Actions คัดลอกขึ้นเซิร์ฟเวอร์เป็น
+# /opt/queue_rjv/docker-compose.yml ทุกครั้งที่ deploy
+#
+# ต่างจาก docker-compose.yml ที่รากโปรเจกต์ (ใช้ตอน dev) ตรงที่:
+#   - ไม่มี service mysql — ใช้ MariaDB ที่ติดตั้งผ่าน aaPanel ของเซิร์ฟเวอร์ (สร้าง DB ในนั้น)
+#   - ไม่ build — ใช้ image hospital-queue:latest ที่ CI build แล้วอัปโหลดมาให้
+#   - network_mode: host — ต่อ 127.0.0.1:3306 ของเครื่องได้ตรง ๆ และรันบนพอร์ต 8124
+#     ของเครื่องเลย (nginx จะ proxy เข้ามาภายหลังตาม DEPLOY.md — ไฟร์วอลล์บล็อก
+#     การเข้าถึง 8124 จากภายนอกอยู่แล้ว ไม่ต้อง map พอร์ตซ้ำ)
+#
+# ค่าต่าง ๆ อ่านจาก /opt/queue_rjv/.env บนเซิร์ฟเวอร์ (ตั้งครั้งเดียว)
+
+services:
+  queue:
+    image: hospital-queue:latest
+    container_name: hospital-queue
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - TZ=Asia/Bangkok
+      - PORT=8124
+      # โหมดเก็บข้อมูล — production ใช้ mysql (MariaDB ของ aaPanel)
+      - STORAGE=${STORAGE:-mysql}
+      - MYSQL_HOST=${MYSQL_HOST:-127.0.0.1}
+      - MYSQL_PORT=${MYSQL_PORT:-3306}
+      - MYSQL_USER=${MYSQL_USER:-queueapp}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:?set in /opt/queue_rjv/.env}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-hospital_queue}
+      # คีย์เซ็น JWT — ตั้งถาวรใน .env token จึงไม่ตายทุกครั้งที่ restart
+      - AUTH_SECRET=${AUTH_SECRET:?set in /opt/queue_rjv/.env}
+      # - AUTH_TTL_HOURS=12
+      # - ADMIN_PASSWORD=...   # ใช้ตอนเริ่มระบบครั้งแรก จะได้ไม่ต้องใช้ admin/admin
+    volumes:
+      # โหมด STORAGE=json จะเก็บที่นี่ / โหมด mysql ไม่ใช้ (เตรียมไว้ก่อนไม่เสียหาย)
+      - ./data:/app/data

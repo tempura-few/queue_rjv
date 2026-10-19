@@ -8,6 +8,7 @@ export async function POST(request) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+  if (core.isAgency(user)) return NextResponse.json({ error: "ฟีเจอร์นี้ — เฉพาะเจ้าหน้าที่โรงพยาบาล" }, { status: 403 });
   const body = await request.json().catch(() => ({}));
   if (!core.db.bookings.some((b) => b.code === body.code)) return NextResponse.json({ error: "ไม่พบคิว" }, { status: 404 });
   await core.store.markCall(body.code, new Date().toISOString());

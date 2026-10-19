@@ -8,6 +8,7 @@ export async function PATCH(request, { params }) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+  if (core.isAgency(user)) return NextResponse.json({ error: "บัญชีตัวแทนดูและจองได้อย่างเดียว — แก้ไข/เลื่อน/ยกเลิกติดต่อเจ้าหน้าที่โรงพยาบาล" }, { status: 403 });
   const { code } = await params;
   const b = core.db.bookings.find((x) => x.code === code);
   if (!b) return NextResponse.json({ error: "ไม่พบคิวนี้" }, { status: 404 });
@@ -37,6 +38,7 @@ export async function DELETE(request, { params }) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+  if (core.isAgency(user)) return NextResponse.json({ error: "บัญชีตัวแทนดูและจองได้อย่างเดียว" }, { status: 403 });
   const { code } = await params;
   const b = core.db.bookings.find((x) => x.code === code);
   if (!b) return NextResponse.json({ error: "ไม่พบคิวนี้" }, { status: 404 });

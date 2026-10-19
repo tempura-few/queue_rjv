@@ -9,9 +9,12 @@ export async function POST(request) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
-  if (!core.can(user.role, "agency.manage")) return NextResponse.json({ error: "นำเข้าคิวจากไฟล์ตัวแทน — เฉพาะฝ่ายขายและผู้ดูแลระบบ" }, { status: 403 });
+  // ฝ่ายขาย/แอดมิน นำเข้าให้ตัวแทนไหนก็ได้ · บัญชีตัวแทนนำเข้าของตัวเองได้ (รหัสผูกจากบัญชีเสมอ)
+  if (!core.can(user.role, "agency.manage") && !core.isAgency(user)) return NextResponse.json({ error: "นำเข้าคิวจากไฟล์ — เฉพาะฝ่ายขาย ผู้ดูแลระบบ และบัญชีตัวแทน" }, { status: 403 });
   const body = await request.json().catch(() => ({}));
-  const agencyCode = String(body.agencyCode || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 20);
+  const agencyCode = core.isAgency(user)
+    ? user.agencyCode
+    : String(body.agencyCode || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 20);
   if (!agencyCode) return NextResponse.json({ error: "กรุณาใส่รหัสตัวแทน" }, { status: 400 });
   const raws = (Array.isArray(body.rows) ? body.rows : [])
     .filter((r) => r && typeof r === "object")

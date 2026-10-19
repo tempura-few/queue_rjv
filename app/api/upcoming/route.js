@@ -8,6 +8,7 @@ export async function GET(request) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+  if (core.isAgency(user)) return NextResponse.json({ error: "ฟีเจอร์นี้ — เฉพาะเจ้าหน้าที่โรงพยาบาล" }, { status: 403 });
   const sp = new URL(request.url).searchParams;
   const service = sp.get("service");
   // ตัวกรองเฉพาะหน้านี้ (ต่างจากหน้าอื่น): เวลาแบบสัมพัทธ์ ?when=today|tomorrow|week และสถานะโทร ?call=pending|called

@@ -9,7 +9,7 @@ export async function POST(request) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
-  if (!core.can(user.role, "agency.manage")) return NextResponse.json({ error: "นำเข้าคิวจากไฟล์ตัวแทน — เฉพาะฝ่ายขายและผู้ดูแลระบบ" }, { status: 403 });
+  if (!core.can(user.role, "agency.manage") && !core.isAgency(user)) return NextResponse.json({ error: "นำเข้าคิวจากไฟล์ — เฉพาะฝ่ายขาย ผู้ดูแลระบบ และบัญชีตัวแทน" }, { status: 403 });
   const body = await request.json().catch(() => ({}));
   let buf = null;
   try { buf = Buffer.from(String(body.data || ""), "base64"); } catch { buf = null; }

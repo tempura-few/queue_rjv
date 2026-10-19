@@ -11,6 +11,7 @@ export async function GET(request) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+  if (core.isAgency(user)) return NextResponse.json({ error: "ปฏิทินว่าง — เฉพาะเจ้าหน้าที่โรงพยาบาล" }, { status: 403 });
   const sp = new URL(request.url).searchParams;
   const from = sp.get("from"), to = sp.get("to");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from || "") || !/^\d{4}-\d{2}-\d{2}$/.test(to || "") || from > to)

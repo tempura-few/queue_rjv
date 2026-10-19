@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, authClear, toISO, fmtFullTh, fmtDayShort, fmtDateShort, STATUS_META, svcDays, fmtDays, DAY_ORDER, DAY_LABELS, ALL_DAYS } from "@/lib/client.js";
+import { api, authClear, toISO, fmtFullTh, fmtDayShort, fmtDateShort, STATUS_META, svcDays, fmtDays, DAY_ORDER, DAY_LABELS, ALL_DAYS, emailOk } from "@/lib/client.js";
 import { CONFIG } from "@/lib/config.js";
 import { ROLES, can } from "@/lib/roles.js";
 import ThDatePicker from "@/components/ThDatePicker.js";
@@ -82,10 +82,13 @@ export default function AdminPage() {
   const [serviceFilter, setServiceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all"); // กรองสถานะในตารางคิวรายวัน
   const [agencyFilter, setAgencyFilter] = useState("all"); // กรองตามตัวแทน (ใช้ร่วมกับตัวกรองวันที่/บริการ/สถานะได้)
+  const [channelFilter, setChannelFilter] = useState("all"); // กรองตามช่องทางผู้ป่วย (master data) — none = ไม่ระบุ
+  const [sourceFilter, setSourceFilter] = useState("all"); // กรองตามแหล่งจอง (Website/Online/ตัวแทน/รอนัดหมาย)
   const [agencyCodesLive, setAgencyCodesLive] = useState([]); // โค้ดตัวแทนจริงจากฐานข้อมูล (รวมตัวที่พิมพ์เองนอกลิสต์ config)
   const [qSearch, setQSearch] = useState("");
   const [queue, setQueue] = useState({ rows: [], stats: null, page: 1, size: 20, total: 0 });
   const [upcoming, setUpcoming] = useState({ rows: [], calls: {}, page: 1, size: 20, total: 0 });
+  const [upBadge, setUpBadge] = useState(0); // ตัวเลขป้ายแดงเมนู "นัดที่กำลังจะถึง" — นับเฉพาะที่ยังไม่ได้โทร
   // ตัวกรองเฉพาะแท็บ "นัดที่กำลังจะถึง" — เวลาสัมพัทธ์ (วันนี้/พรุ่งนี้/7 วัน) + สถานะโทร ไม่ใช่ตัวกรองวันที่แบบตารางคิว
   const [upWhen, setUpWhen] = useState("all");
   const [upCall, setUpCall] = useState("all");
@@ -101,6 +104,10 @@ export default function AdminPage() {
   const [daysAheadMsg, setDaysAheadMsg] = useState("");
   // สิทธิการรักษา (Payment / coverage) — rightsCfg = ค่าที่ใช้จริงตามค่าตั้ง, rightsEdit = ฉบับแก้ไขในหน้าตั้งค่า
   const [rightsCfg, setRightsCfg] = useState([]);
+  // ช่องทางผู้ป่วย (master data) — chCfg = ที่ใช้จริง, chEdit = ฉบับแก้ไขในหน้าตั้งค่า
+  const [chCfg, setChCfg] = useState([]);
+  const [chEdit, setChEdit] = useState([]);
+  const [chMsg, setChMsg] = useState("");
   const [rightsEdit, setRightsEdit] = useState([]);
   const [rightsMsg, setRightsMsg] = useState("");
   // เงื่อนไขแท็บ "นัดที่กำลังจะถึง" (โหลดจาก /api/config — บันทึกผ่าน /api/settings)
@@ -120,6 +127,7 @@ export default function AdminPage() {
   const [svcModal, setSvcModal] = useState(null); // {id,icon,name,desc,cap,items,slotsWorking,days}
   // popup รายละเอียดผู้จอง — เปิดจากการคลิกแถวในตารางคิวรายวัน (นอกคอลัมน์ "จัดการ")
   const [detail, setDetail] = useState(null);
+  // โมดัลตัวแทนจองคิวลูกค้าเอง (role agency) — {name,contact,service,date,time,times,rights,note}
   // แท็บ "ปฏิทินว่าง" — ภาพรวมที่นั่งคงเหลือรายเดือนของทุกบริการ
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
   const [calData, setCalData] = useState(null);
@@ -128,6 +136,13 @@ export default function AdminPage() {
   // แท็บจัดการผู้ใช้ (admin) — {id,name,username,role} + โมดัลเพิ่ม/แก้ไข {id?,name,username,role,password,invalid}
   const [staff, setStaff] = useState([]);
   const [userModal, setUserModal] = useState(null);
+  // Master data ตัวแทน — {id, code, name, contact?, active?, bookings} (bookings = จำนวนคิวที่อ้างรหัสนี้)
+  const [agencies, setAgencies] = useState([]);
+  const [agencyModal, setAgencyModal] = useState(null);
+  // บัญชีที่เพิ่ง gen ให้ตัวแทน [{code, username, password}] — โชว์ครั้งเดียวให้แอดมินเก็บรหัสไปส่งตัวแทน
+  const [creds, setCreds] = useState(null);
+  // โมดัลสร้างบัญชีให้ตัวแทนเดิม (ปุ่ม 🔑) — {code, name, password}
+  const [genAcct, setGenAcct] = useState(null);
   const impFileRef = useRef(null);
 
   const svc = useCallback((id) => getService(services, id) || { icon: "❓", name: "บริการที่ถูกลบ", items: [] }, [services]);
@@ -155,13 +170,15 @@ export default function AdminPage() {
         document.title = "หน้าเจ้าหน้าที่ — " + CONFIG.hospitalName;
       } catch { router.replace("/login"); return; }
       const [a, b] = await Promise.all([api("/api/services"), api("/api/slots")]);
+      api("/api/agencies").then(({ agencies: ag }) => setAgencies(ag)).catch(() => {}); // ครั้งแรกจะ seed จาก config + โค้ดที่พบในคิวให้อัตโนมัติ
       setServices(a.services);
       setGlobalSlots(b.slots);
-      api("/api/config").then(({ daysAhead, upcoming, rights }) => {
+      api("/api/config").then(({ daysAhead, upcoming, rights, channels }) => {
         setDaysAheadVal(daysAhead);
         setDaysAheadOrig(daysAhead);
         if (upcoming) { setUpCfg(upcoming); setUpCfgOrig(upcoming); }
         if (Array.isArray(rights) && rights.length) { setRightsCfg(rights); setRightsEdit(rights.map((r) => ({ ...r }))); }
+        if (Array.isArray(channels) && channels.length) { setChCfg(channels); setChEdit([...channels]); }
       }).catch(() => {});
     })();
   }, [router]);
@@ -175,7 +192,7 @@ export default function AdminPage() {
 
   const fetchQueuePage = useCallback(async (page, size, filters) => {
     // กรองบางส่วนที่ผู้เรียกส่งมา (เช่นหลังบันทึก walk-in อยากกระโดดไปดูวันนั้น) ยังคงค่าตัวกรองอื่นจาก state เดิม
-    const f = Object.assign({ mode: dateF.mode, date: dateF.date, from: dateF.from, to: dateF.to, service: serviceFilter, status: statusFilter, agency: agencyFilter, q: qSearch }, filters || {});
+    const f = Object.assign({ mode: dateF.mode, date: dateF.date, from: dateF.from, to: dateF.to, service: serviceFilter, status: statusFilter, agency: agencyFilter, channel: channelFilter, source: sourceFilter, q: qSearch }, filters || {});
     const params = new URLSearchParams();
     if (f.q) params.set("q", f.q);
     else if (f.mode === "all") { /* ทุกวัน — ไม่ส่งเงื่อนไขวันที่ */ }
@@ -186,6 +203,8 @@ export default function AdminPage() {
     if (f.service !== "all" && f.service) params.set("service", f.service);
     if (f.status && f.status !== "all") params.set("status", f.status);
     if (f.agency && f.agency !== "all") params.set("agency", f.agency);
+    if (f.channel && f.channel !== "all") params.set("channel", f.channel);
+    if (f.source && f.source !== "all") params.set("source", f.source);
     params.set("page", page); params.set("pageSize", size);
     let rows, stats, pagination, agencyCodes;
     try {
@@ -197,7 +216,7 @@ export default function AdminPage() {
     const p = Math.min(page, totalPages);
     if (!rows.length && page > totalPages) return fetchQueuePage(totalPages, size, filters);
     setQueue((v) => ({ rows, stats, page: p, size, total }));
-  }, [dateF, serviceFilter, statusFilter, agencyFilter, qSearch, handleLoadError]);
+  }, [dateF, serviceFilter, statusFilter, agencyFilter, channelFilter, sourceFilter, qSearch, handleLoadError]);
 
   const fetchUpcomingPage = useCallback(async (page, size, service) => {
     const params = new URLSearchParams();
@@ -216,6 +235,14 @@ export default function AdminPage() {
     if (!list.length && page > totalPages) return fetchUpcomingPage(totalPages, size, service);
     setUpcoming((v) => ({ rows: list, calls, page: p, size, total }));
   }, [serviceFilter, upWhen, upCall, handleLoadError]);
+
+  // ป้ายแดงเมนู "นัดที่กำลังจะถึง": นับเฉพาะนัดที่ยังไม่ได้โทรยืนยัน (กด "โทรแล้ว" แล้วตัวเลขต้องลดลง)
+  const fetchUpBadge = useCallback(async () => {
+    try {
+      const { pagination } = await api("/api/upcoming?call=pending&pageSize=1");
+      setUpBadge(pagination ? pagination.total : 0);
+    } catch { /* ป้ายเป็นตัวเลขเสริม — โหลดพลาดก็เงียบ ๆ ไม่ต้องรบกวนผู้ใช้ */ }
+  }, []);
 
   // แท็บรอนัดหมาย: โชว์เฉพาะที่ยัง "รอนัดหมาย" เป็นค่าเริ่มต้น — นัดเสร็จ (confirmed) หายจากลิสต์งานทันที จะดูย้อนหลังได้ผ่านตัวกรอง
   const [cbStatus, setCbStatus] = useState("pending");
@@ -238,8 +265,9 @@ export default function AdminPage() {
   // สลับตัวกรองสถานะในแท็บรอนัดหมาย → โหลดหน้า 1 ใหม่ทันที (effect บูตหลักกันซ้ำด้วย bootedRef)
   useEffect(() => { if (me) fetchCallbacksPage(1, 20); }, [cbStatus]);
 
-  // หน้ารายงาน — เลือกช่วงได้: 7/30/90 วันล่าสุด หรือทั้งหมด (repDays: "7" | "30" | "90" | "all")
+  // หน้ารายงาน — เลือกช่วงได้: 7/30/90 วันล่าสุด, ทั้งหมด (repDays) หรือระบุช่วงวันที่เอง (repCustom: กรอกครบทั้งคู่จึงใช้)
   const [repDays, setRepDays] = useState("30");
+  const [repCustom, setRepCustom] = useState({ from: "", to: "" });
   // tooltip ลอยติดเมาส์บนกราฟแนวโน้มรายวัน — { date, x, y } เก็บวันที่ของแท่ง + พิกัดเคอร์เซอร์
   const [repHover, setRepHover] = useState(null);
   function repMove(e) {
@@ -248,12 +276,15 @@ export default function AdminPage() {
     setRepHover({ date: col.dataset.date, x: e.clientX, y: e.clientY });
   }
   const loadReports = useCallback(async () => {
+    if (!me || !can(me.role, "report.view")) return; // รายงานเป็นสิทธิ์แอดมิน — ผู้ไม่มีสิทธิ์ข้ามการโหลดเงียบ ๆ (กัน 403 ตอน action อื่นเรียกตาม)
     let rep;
     try {
-      rep = await api("/api/report?days=" + repDays);
+      rep = repCustom.from && repCustom.to
+        ? await api(`/api/report?from=${repCustom.from}&to=${repCustom.to}`)
+        : await api("/api/report?days=" + repDays);
     } catch (e) { handleLoadError(e); return; }
     setReports(rep);
-  }, [repDays, handleLoadError]);
+  }, [me, repDays, repCustom, handleLoadError]);
   useEffect(() => { if (tab === "report") loadReports(); }, [tab, loadReports]);
 
   // ประวัติการใช้งาน (เมนูแยก — admin เท่านั้น) โหลด audit ทั้งก้อน (เก็บสูงสุด 500 รายการ) มากรองฝั่ง client
@@ -278,17 +309,19 @@ export default function AdminPage() {
     if (bootedRef.current || !services.length || !me) return;
     bootedRef.current = true;
     fetchQueuePage(1, 20);
+    if (me.role === "agency") return; // บัญชีตัวแทน: โหลดแค่ตารางคิวของตัวเอง — ที่เหลือเป็นเมนูเจ้าหน้าที่ (API จะตอบ 403)
     fetchUpcomingPage(1, 20);
+    fetchUpBadge();
     fetchCallbacksPage(1, 20);
     loadReports();
     if (can(me.role, "logs.view")) loadLogs();
-  }, [services, me, fetchQueuePage, fetchUpcomingPage, fetchCallbacksPage, loadReports, loadLogs]);
+  }, [services, me, fetchQueuePage, fetchUpcomingPage, fetchUpBadge, fetchCallbacksPage, loadReports, loadLogs]);
 
   // ฟิลเตอร์เปลี่ยน → กลับหน้า 1
   useEffect(() => {
     if (!bootedRef.current) return;
     fetchQueuePage(1, queue.size);
-  }, [dateF, serviceFilter, statusFilter, agencyFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dateF, serviceFilter, statusFilter, agencyFilter, channelFilter, sourceFilter]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!bootedRef.current) return;
     fetchUpcomingPage(1, upcoming.size);
@@ -335,6 +368,8 @@ export default function AdminPage() {
     try {
       await api("/api/bookings/" + code, { method: "PATCH", body: JSON.stringify({ status: act }) });
       fetchQueuePage(queue.page, queue.size); // รีเฟรชหน้าเดิมที่ดูอยู่
+      fetchUpcomingPage(upcoming.page, upcoming.size); // ตัวเลขนัดที่กำลังจะถึงบนเมนูเปลี่ยนตาม
+      fetchUpBadge();
       loadReports();
     } catch (e) { alert(e.message); }
   }
@@ -367,6 +402,7 @@ export default function AdminPage() {
       setResched(null);
       fetchQueuePage(queue.page, queue.size);
       fetchUpcomingPage(upcoming.page, upcoming.size);
+      fetchUpBadge(); // เลื่อนออกนอกช่วง → ป้ายลด
     } catch (err) {
       setResched((r) => r && { ...r, err: err.message });
     }
@@ -377,11 +413,11 @@ export default function AdminPage() {
     const active = services.filter((s) => s.active !== false);
     const serviceId = (prefill && prefill.service) || (active[0] ? active[0].id : "");
     setWalkin({
-      name: prefill ? prefill.name : "",
-      phone: prefill ? prefill.phone : "",
+      name: prefill ? (prefill.name || "") : "",
+      phone: prefill ? (prefill.phone || "") : "",
       email: prefill ? (prefill.email || "") : "",
       service: serviceId, date: toISO(new Date()), time: "", times: [],
-      rights: (rightsCfg[0] && rightsCfg[0].th) || CONFIG.rightsOptions[0], agency: "",
+      rights: (rightsCfg[0] && rightsCfg[0].th) || CONFIG.rightsOptions[0], agency: "", channel: "",
       cbCode: prefill ? prefill.cbCode : undefined,
     });
     await fillWalkinTimes(serviceId, toISO(new Date()));
@@ -409,7 +445,7 @@ export default function AdminPage() {
     try {
       const r = await api("/api/walkin", { method: "POST", body: JSON.stringify({
         serviceId: w.service, date: w.date || toISO(new Date()), time: w.time, name: w.name.trim(), phone: w.phone.trim(),
-        email: w.email.trim() || undefined, rights: w.rights, agencyCode: w.agency.trim().toUpperCase() || undefined,
+        email: w.email.trim() || undefined, rights: w.rights, agencyCode: w.agency.trim().toUpperCase() || undefined, channel: w.channel || undefined,
       })});
       setWalkin(null);
       const day = w.date || toISO(new Date());
@@ -446,6 +482,7 @@ export default function AdminPage() {
       fetchCallbacksPage(cb.page, cb.size);
       fetchQueuePage(1, queue.size);      // คำขอที่มีวันนัดแล้วจะโผล่ในตารางคิวของวันนั้น
       fetchUpcomingPage(1, upcoming.size); // และในแท็บนัดที่กำลังจะถึง
+      fetchUpBadge();
       loadReports();
     } catch (err) { setCbSched({ ...m, err: err.message }); }
   }
@@ -453,6 +490,7 @@ export default function AdminPage() {
     try {
       await api("/api/bookings/" + code, { method: "PATCH", body: JSON.stringify({ status: act }) });
       fetchCallbacksPage(cb.page, cb.size);
+      fetchUpBadge(); // คำขอกลายเป็นนัดจริง → ป้ายเพิ่ม
       loadReports();
     } catch (e) { alert(e.message); }
   }
@@ -462,7 +500,7 @@ export default function AdminPage() {
     const active = services.filter((s) => s.active !== false);
     setBatch({
       agency: "", service: active[0] ? active[0].id : "", date: toISO(new Date(Date.now() + 864e5)),
-      time: "", times: [], rights: (rightsCfg[0] && rightsCfg[0].th) || CONFIG.rightsOptions[0], names: "",
+      time: "", times: [], rights: (rightsCfg[0] && rightsCfg[0].th) || CONFIG.rightsOptions[0], people: [{ name: "", contact: "" }],
     });
     await fillBatchTimes(active[0] ? active[0].id : "", toISO(new Date(Date.now() + 864e5)));
   }
@@ -476,13 +514,18 @@ export default function AdminPage() {
   async function submitBatch(e) {
     e.preventDefault();
     const b = batch;
-    const rows = b.names.split("\n").map((l) => l.trim()).filter(Boolean)
-      .map((line) => { const parts = line.split(/[,;\t]/).map((p) => p.trim()); return { name: parts[0] || "", phone: parts[1] || "", email: parts[2] || "" }; })
+    // แถวรายชื่อทีละคน: ช่องติดต่อใส่เบอร์หรืออีเมลก็ได้ (ระบบแยกให้เองตามรูปแบบ)
+    const rows = (b.people || [])
+      .map((p) => {
+        const contact = String(p.contact || "").trim();
+        const isEmail = emailOk(contact);
+        return { name: String(p.name || "").trim(), phone: isEmail ? "" : contact, email: isEmail ? contact : "" };
+      })
       .filter((r) => r.name);
-    if (!b.agency.trim() || !rows.length) { setBatch({ ...b, invalid: !b.agency.trim() || !rows.length }); return; }
+    if ((!isAg && !b.agency.trim()) || !rows.length) { setBatch({ ...b, invalid: (!isAg && !b.agency.trim()) || !rows.length }); return; }
     try {
       const r = await api("/api/batch", { method: "POST", body: JSON.stringify({
-        agencyCode: b.agency.trim(), serviceId: b.service, date: b.date, time: b.time,
+        agencyCode: isAg ? undefined : b.agency.trim(), serviceId: b.service, date: b.date, time: b.time,
         rights: b.rights, rows,
       })});
       setBatch(null);
@@ -490,7 +533,7 @@ export default function AdminPage() {
       setQSearch("");
       fetchQueuePage(1, queue.size, { mode: "single", date: b.date, service: serviceFilter, q: "" });
       loadReports();
-      alert(`บันทึก ${r.count} คิวจากตัวแทน ${b.agency.trim().toUpperCase()} เรียบร้อย`);
+      alert(`บันทึก ${r.count} คิวจากตัวแทน ${(isAg ? me.agencyCode : b.agency.trim().toUpperCase())} เรียบร้อย`);
     } catch (err) { alert(err.message); }
   }
 
@@ -510,15 +553,15 @@ export default function AdminPage() {
   async function submitImport(e) {
     e.preventDefault();
     const okRows = imp.rows.filter((r) => r.ok).map((r) => r.raw);
-    if (!imp.agency.trim() || !okRows.length) { setImp({ ...imp, invalid: !imp.agency.trim() }); return; }
+    if ((!isAg && !imp.agency.trim()) || !okRows.length) { setImp({ ...imp, invalid: !isAg && !imp.agency.trim() }); return; }
     try {
-      const r = await api("/api/agency-import", { method: "POST", body: JSON.stringify({ agencyCode: imp.agency.trim(), rows: okRows }) });
+      const r = await api("/api/agency-import", { method: "POST", body: JSON.stringify({ agencyCode: isAg ? undefined : imp.agency.trim(), rows: okRows }) });
       setImp(null);
       if (impFileRef.current) impFileRef.current.value = "";
       if (r.firstDate) { setDateF((v) => ({ ...v, mode: "single", date: r.firstDate })); setQSearch(""); fetchQueuePage(1, queue.size, { mode: "single", date: r.firstDate, service: serviceFilter, q: "" }); }
       else fetchQueuePage(queue.page, queue.size);
       loadReports();
-      let msg = `นำเข้าสำเร็จ ${r.count} คิวจากตัวแทน ${imp.agency.trim().toUpperCase()}`;
+      let msg = `นำเข้าสำเร็จ ${r.count} คิวจากตัวแทน ${(isAg ? me.agencyCode : imp.agency.trim().toUpperCase())}`;
       if (r.skipped && r.skipped.length) {
         msg += `\n\nข้าม ${r.skipped.length} แถว:\n` + r.skipped.slice(0, 10).map((s) => `• แถวที่ ${s.row} ${s.name || ""}: ${s.error}`).join("\n");
         if (r.skipped.length > 10) msg += `\n… และอีก ${r.skipped.length - 10} แถว`;
@@ -537,7 +580,9 @@ export default function AdminPage() {
         : `?date=${encodeURIComponent(dateF.date || "")}`)
         + (serviceFilter !== "all" ? `&service=${encodeURIComponent(serviceFilter)}` : "")
         + (statusFilter !== "all" ? `&status=${encodeURIComponent(statusFilter)}` : "")
-        + (agencyFilter !== "all" ? `&agency=${encodeURIComponent(agencyFilter)}` : "");
+        + (agencyFilter !== "all" ? `&agency=${encodeURIComponent(agencyFilter)}` : "")
+        + (channelFilter !== "all" ? `&channel=${encodeURIComponent(channelFilter)}` : "")
+        + (sourceFilter !== "all" ? `&source=${encodeURIComponent(sourceFilter)}` : "");
       const res = await fetch("/api/export.csv" + qs, { headers: token ? { Authorization: "Bearer " + token } : {} });
       if (!res.ok) { alert("ส่งออกไม่สำเร็จ (HTTP " + res.status + ")"); return; }
       const blob = await res.blob();
@@ -561,6 +606,58 @@ export default function AdminPage() {
       setServices(sv);
       fetchQueuePage(queue.page, queue.size);
     } catch (err) { alert(err.message); }
+  }
+  // ---------- จัดการตัวแทน (master data) ----------
+  async function saveAgenciesList(list, genFor) {
+    try {
+      const res = await api("/api/agencies", { method: "PUT", body: JSON.stringify(Object.assign({ agencies: list }, Array.isArray(genFor) ? { genFor } : {})) });
+      setAgencies(res.agencies);
+      if (Array.isArray(res.credentials) && res.credentials.length) setCreds(res.credentials); // รหัสผ่านโผล่ครั้งเดียวหลังสร้างบัญชี
+    } catch (err) { alert(err.message); }
+  }
+  function openAgencyModal(a) {
+    setAgencyModal({ id: a ? a.id : null, code: a ? a.code : "", name: a ? a.name : "", contact: a ? (a.contact || "") : "", password: "", invalid: false });
+  }
+  async function submitAgency(e) {
+    e.preventDefault();
+    const m = agencyModal;
+    const code = m.code.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 20);
+    const pw = m.password.trim();
+    if (!/^[A-Z0-9-]{2,20}$/.test(code) || !m.name.trim() || (pw && pw.length < 6)) { setAgencyModal({ ...m, code, invalid: true }); return; }
+    const list = agencies.map((x) => ({ id: x.id, code: x.code, name: x.name, contact: x.contact, active: x.active }));
+    if (m.id) {
+      const t = list.find((x) => x.id === m.id);
+      t.name = m.name.trim(); t.contact = m.contact.trim() || undefined;
+    } else {
+      if (list.some((x) => x.code === code)) { alert(`มีรหัสตัวแทน ${code} อยู่แล้ว`); setAgencyModal({ ...m, code, invalid: true }); return; }
+      list.push({ code, name: m.name.trim(), contact: m.contact.trim() || undefined, password: pw || undefined }); // password = ตั้งเอง (เว้นว่างให้ระบบสุ่ม)
+    }
+    await saveAgenciesList(list);
+    setAgencyModal(null);
+  }
+  async function agencyAction(act, a) {
+    const list = agencies.map((x) => ({ id: x.id, code: x.code, name: x.name, contact: x.contact, active: x.active }));
+    const t = list.find((x) => x.id === a.id);
+    if (!t) return;
+    if (act === "edit") return openAgencyModal(a);
+    if (act === "toggle") t.active = t.active === false ? undefined : false;
+    if (act === "genAccount") return setGenAcct({ code: a.code, name: a.name, password: "", invalid: false });
+    if (act === "delete") {
+      const msg = a.bookings ? `ตัวแทน "${a.code}" มีคิวอ้างถึง ${a.bookings} รายการ — ลบข้อมูลหลักแล้วคิวเหล่านั้นยังอยู่ครบ แต่จะแสดงเป็นรหัสโดยไม่มีชื่อ\nยืนยันการลบ?` : `ลบตัวแทน "${a.code} — ${a.name}"?`;
+      if (!confirm(msg)) return;
+      return saveAgenciesList(list.filter((x) => x.id !== a.id));
+    }
+    saveAgenciesList(list);
+  }
+  // ยืนยันสร้างบัญชีจากโมดัล 🔑 — รหัสผ่านเว้นว่าง = ระบบสุ่ม
+  async function submitGenAcct(e) {
+    e.preventDefault();
+    const m = genAcct;
+    const pw = m.password.trim();
+    if (pw && pw.length < 6) { setGenAcct({ ...m, invalid: true }); return; }
+    const list = agencies.map((x) => ({ id: x.id, code: x.code, name: x.name, contact: x.contact, active: x.active }));
+    setGenAcct(null);
+    await saveAgenciesList(list, [{ code: m.code, password: pw || undefined }]);
   }
   function openSvcModal(s) {
     if (!can(me.role, "services.manage")) { alert("เฉพาะผู้ดูแลระบบที่แก้ไขบริการได้"); return; }
@@ -676,6 +773,7 @@ export default function AdminPage() {
         setUpCfgOrig(next);
         setUpCfgMsg("บันทึกแล้ว ✓");
         fetchUpcomingPage(upcoming.page, upcoming.size); // รีเฟรชแท็บนัดที่กำลังจะถึงให้เห็นผลทันที
+        fetchUpBadge(); // ช่วงวันที่นับเปลี่ยน → ตัวเลขป้ายเปลี่ยนตาม
       },
     });
   }
@@ -697,6 +795,24 @@ export default function AdminPage() {
         setRightsCfg(saved);
         setRightsEdit(saved.map((r) => ({ ...r })));
         setRightsMsg("บันทึกแล้ว ✓ " + saved.length + " รายการ");
+      },
+    });
+  }
+  function saveChannels() {
+    setChMsg("");
+    const rows = chEdit.map((c) => String(c || "").trim()).filter(Boolean);
+    if (new Set(rows).size !== rows.length) { alert("ชื่อช่องทางซ้ำกัน กรุณาตรวจอีกครั้ง"); return; }
+    if (rows.join(", ") === chCfg.join(", ")) { setChMsg("ค่าเดิม — ยังไม่มีการเปลี่ยนแปลง"); return; }
+    setConfirmSet({
+      title: "📣 แก้ไขช่องทางผู้ป่วย (master data)",
+      changes: [{ label: "รายการช่องทาง", from: chCfg.join(", ") || "—", to: rows.join(", ") || "—" }],
+      note: "คิวเดิมที่บันทึกช่องทางเก่าไว้จะแสดงชื่อเดิมตามที่บันทึก — รายการที่ถูกลบจะไม่ให้เลือกใหม่",
+      action: async () => {
+        const { settings } = await api("/api/settings", { method: "PUT", body: JSON.stringify({ channels: rows }) });
+        const saved = Array.isArray(settings.channels) && settings.channels.length ? settings.channels : rows;
+        setChCfg(saved);
+        setChEdit([...saved]);
+        setChMsg("บันทึกแล้ว ✓ " + saved.length + " รายการ");
       },
     });
   }
@@ -757,6 +873,7 @@ export default function AdminPage() {
       setUpcoming((u) => ({ ...u, calls: { ...u.calls, [m.code]: Date.now() } }));
       setCallResult(null);
       fetchUpcomingPage(upcoming.page, upcoming.size); // ยกเลิก/เลื่อนออกนอกช่วง → หายจากลิสต์ทันที
+      fetchUpBadge(); // โทรแล้ว → ตัวเลขป้ายแดงลดทันที
       fetchQueuePage(queue.page, queue.size);          // สถานะ/เวลาใหม่ต้องสะท้อนในตารางคิวด้วย
       loadReports();
     } catch (err) {
@@ -771,6 +888,7 @@ export default function AdminPage() {
       name: u ? u.name : "",
       username: u ? u.username : "",
       role: u ? u.role : "cs",
+      agency: u ? (u.agencyCode || "") : "",
       password: "",
       invalid: false,
     });
@@ -781,15 +899,17 @@ export default function AdminPage() {
     const username = m.username.trim();
     const password = m.password;
     // ตรวจฝั่งหน้าก่อน — ที่เหลือ (ชื่อซ้ำ/สิทธิ์ admin คนสุดท้าย ฯลฯ) server ตรวจอีกชั้น
-    if (!m.name.trim() || !/^[a-zA-Z0-9_.-]{3,50}$/.test(username) || (!m.id && password.length < 6) || (password && password.length < 6)) {
+    if (!m.name.trim() || !/^[a-zA-Z0-9_.-]{3,50}$/.test(username) || (!m.id && password.length < 6) || (password && password.length < 6) ||
+        (m.role === "agency" && !m.agency)) {
       setUserModal({ ...m, invalid: true });
       return;
     }
     try {
+      const agencyField = m.role === "agency" ? { agencyCode: m.agency } : {};
       if (m.id)
-        await api("/api/users", { method: "PATCH", body: JSON.stringify({ id: m.id, name: m.name.trim(), username, role: m.role, password: password || undefined }) });
+        await api("/api/users", { method: "PATCH", body: JSON.stringify({ id: m.id, name: m.name.trim(), username, role: m.role, password: password || undefined, ...agencyField }) });
       else
-        await api("/api/users", { method: "POST", body: JSON.stringify({ name: m.name.trim(), username, role: m.role, password }) });
+        await api("/api/users", { method: "POST", body: JSON.stringify({ name: m.name.trim(), username, role: m.role, password, ...agencyField }) });
       setUserModal(null);
       fetchUsers();
     } catch (err) { alert(err.message); }
@@ -804,6 +924,7 @@ export default function AdminPage() {
 
   if (!me) return <main className="container"><p className="hint" style={{ padding: 40 }}>กำลังโหลด…</p></main>;
 
+  const isAg = me.role === "agency"; // บัญชีตัวแทน — ดูคิวตัวเอง + จองเองได้อย่างเดียว
   const q = qSearch.trim();
   // ป้ายช่วงเวลาของแท็บนัดที่กำลังจะถึง ตามตัวกรองเวลาสัมพัทธ์ที่เลือกอยู่
   const upWhenLabel = upWhen === "today" ? "วันนี้" : upWhen === "tomorrow" ? "พรุ่งนี้" : upWhen === "week" ? "7 วันข้างหน้า" : `${upCfg.includeToday ? "วันนี้" : "พรุ่งนี้"}–${upCfg.days} วันข้างหน้า`;
@@ -834,22 +955,35 @@ export default function AdminPage() {
               ["calendar", "🗓️", "ปฏิทินว่าง", "ที่นั่งคงเหลือรายเดือน"],
               ["upcoming", "📞", "นัดที่กำลังจะถึง", (upCfg.includeToday ? "วันนี้" : "พรุ่งนี้") + " – " + upCfg.days + " วัน"],
               ["callbacks", "☎️", "รอนัดหมาย", "ไม่มีเวลานัด · คำขอจากผู้ป่วย"],
-              ["report", "📊", "รายงาน", "ภาพรวม · แนวโน้ม · ตัวแทน"],
+              ["agencies", "🤝", "ตัวแทน", "Master data · รหัส/ชื่อ"],
+              ["report", "📊", "รายงาน", "ภาพรวม · แนวโน้ม · ตัวแทน", "report.view"],
               ["history", "🧾", "ประวัติการใช้งาน", "ใคร ทำอะไร เมื่อไหร่", "logs.view"],
               ["services", "⚙️", "จัดการบริการ", "บริการ · เวลา · ระยะจอง", "services.manage"],
               ["users", "👥", "จัดการผู้ใช้", "บัญชี · สิทธิ์ 3 ระดับ", "users.manage"],
-            ].filter(([, , , , perm]) => !perm || can(me.role, perm)).map(([k, ico, label, sub]) => (
+            ].filter(([, , , , perm]) => !perm || can(me.role, perm))
+             .filter(([k]) => !isAg || k === "queue") // บัญชีตัวแทน: เห็นเฉพาะตารางคิวของตัวเอง
+            .map(([k, ico, label, sub]) => (
               <button key={k} type="button" className={"side-item" + (tab === k ? " active" : "")} onClick={() => setTab(k)}>
                 <span className="si-ico">{ico}</span>
-                <span>{label}<span className="si-sub">{sub}</span></span>
+                <span>{label}{isAg && k === "queue" ? <span className="si-sub">เฉพาะคิวของ {me.agencyCode}</span> : <span className="si-sub">{sub}</span>}</span>
+                {k === "upcoming" && upBadge > 0 && <span className="side-badge" title={"มีนัดที่ยังไม่ได้โทรยืนยัน " + upBadge + " คิว"}>{upBadge > 99 ? "99+" : upBadge}</span>}
               </button>
             ))}
           </nav>
           <div className="side-sep" />
           <div className="side-actions">
-            <button type="button" className="side-btn" onClick={openWalkin}>➕ รับคิว walk-in</button>
-            {can(me.role, "agency.manage") && <button type="button" className="side-btn" onClick={openBatch}>📦 รับคิวเป็นชุด (ตัวแทน)</button>}
-            {can(me.role, "agency.manage") && <button type="button" className="side-btn" onClick={() => { setImp({ agency: "", rows: [] }); }}>📥 นำเข้า Excel (ตัวแทน)</button>}
+            {isAg ? (
+              <>
+                <button type="button" className="side-btn" onClick={openBatch}>📦 รับคิวเป็นชุด</button>
+                <button type="button" className="side-btn" onClick={() => { setImp({ agency: "", rows: [] }); }}>📥 นำเข้า Excel</button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="side-btn" onClick={() => openWalkin()}>➕ รับคิว walk-in</button>
+                {can(me.role, "agency.manage") && <button type="button" className="side-btn" onClick={openBatch}>📦 รับคิวเป็นชุด (ตัวแทน)</button>}
+                {can(me.role, "agency.manage") && <button type="button" className="side-btn" onClick={() => { setImp({ agency: "", rows: [] }); }}>📥 นำเข้า Excel (ตัวแทน)</button>}
+              </>
+            )}
           </div>
           <div className="side-user">
             <div className="side-who">
@@ -895,15 +1029,27 @@ export default function AdminPage() {
                 <option value="noshow">ไม่มาตามนัด</option>
                 <option value="cancelled">ยกเลิก</option>
               </select>
+              <select className="date-input" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} title="กรองตามแหล่งจอง (Website/Online/ตัวแทน/รอนัดหมาย) — ใช้ร่วมกับตัวกรองอื่นได้ และออกกับไฟล์ CSV">
+                <option value="all">ทุกแหล่งจอง</option>
+                {Object.entries(CONFIG.channels).map(([k, c]) => <option key={k} value={k}>{c.icon} {c.label}</option>)}
+              </select>
+              {!isAg && (
               <select className="date-input" value={agencyFilter} onChange={(e) => setAgencyFilter(e.target.value)} title="กรองตามตัวแทน — ใช้ร่วมกับตัวกรองอื่นได้ และออกกับไฟล์ CSV">
                 <option value="all">ทุกตัวแทน</option>
-                {/* โค้ดที่พบจริงในฐานข้อมูล + ลิสต์ config (config มาทีหลัง = ชนะด้วยชื่อที่ตั้งไว้) รวมกันไม่ซ้ำ */}
-                {[...new Map([...agencyCodesLive.map((c) => [c, { code: c, name: null }]), ...CONFIG.agencyCodes.map((a) => [a.code, a])]).values()]
-                  .sort((a, b) => a.code.localeCompare(b.code))
-                  .map((a) => <option key={a.code} value={a.code}>🤝 {a.code}{a.name ? " — " + a.name : ""}</option>)}
+                {/* master data ตัวแทน + โค้ดที่พบจริงในคิวแต่ยังไม่ได้ลงทะเบียน */}
+                {[...agencies.map((a) => ({ code: a.code, name: a.name, closed: a.active === false })),
+                  ...agencyCodesLive.filter((c) => !agencies.some((a) => a.code === c)).map((c) => ({ code: c, name: null, closed: false }))]
+                  .sort((x, y) => x.code.localeCompare(y.code))
+                  .map((a) => <option key={a.code} value={a.code}>🤝 {a.code}{a.name ? " — " + a.name : " (ยังไม่ลงทะเบียน)"}{a.closed ? " (ปิด)" : ""}</option>)}
+              </select>
+              )}
+              <select className="date-input" value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} title="กรองตามช่องทางที่ผู้ป่วยรู้จัก/มาจาก — ใช้ร่วมกับตัวกรองอื่นได้ และออกกับไฟล์ CSV">
+                <option value="all">ทุกช่องทาง</option>
+                {chCfg.map((c) => <option key={c} value={c}>📣 {c}</option>)}
+                <option value="none">📣 — ไม่ระบุ —</option>
               </select>
               <input type="search" className="date-input search-input" placeholder="🔍 ค้นหา ชื่อ/เบอร์/อีเมล/รหัส (ทุกวัน)" value={qSearch} onChange={(e) => setQSearch(e.target.value)} />
-              <button className="btn btn-ghost btn-sm" type="button" onClick={exportCsv}>⬇ CSV</button>
+              {!isAg && <button className="btn btn-ghost btn-sm" type="button" onClick={exportCsv}>⬇ CSV</button>}
             </div>
           </div>
           )}
@@ -914,8 +1060,8 @@ export default function AdminPage() {
             <div className="stat-grid">
               {queue.stats && [
                 [queue.stats.total, q ? "ผลการค้นหา" : dateF.mode === "range" ? "คิวช่วงที่เลือก" : "คิววันที่เลือก", ""],
-                [queue.stats.online, "🌐 ออนไลน์", "c-online"],
-                [queue.stats.walkin, "🚶 Walk-in", "c-walkin"],
+                [queue.stats.online, "🌐 Website", "c-online"],
+                [queue.stats.walkin, "🚶 Online", "c-walkin"],
                 [queue.stats.agency, "🤝 ตัวแทน", "c-agency"],
                 [queue.stats.pending, "รอยืนยัน", "c-pending"],
                 [queue.stats.confirmed, "ยืนยันแล้ว", "c-confirmed"],
@@ -933,7 +1079,7 @@ export default function AdminPage() {
                       <thead><tr>
                         <th>#</th>
                         {(q || dateF.mode === "all") && <th>วันที่</th>}
-                        <th>เวลา</th><th>คิวที่</th><th>ผู้จอง</th><th>ช่องทาง</th><th>บริการ</th><th>สิทธิ์</th><th>สถานะ</th><th>จัดการ</th>
+                        <th>เวลา</th><th>จองเมื่อ</th><th>คิวที่</th><th>ผู้จอง</th><th>ช่องทาง</th><th>บริการ</th><th>สิทธิ์</th><th>สถานะ</th>{!isAg && <th>จัดการ</th>}
                       </tr></thead>
                       <tbody>
                         {queue.rows.map((b, idx) => {
@@ -950,19 +1096,27 @@ export default function AdminPage() {
                                     : <span className="td-sub">📞 รอนัดหมาย (ยังไม่มีวัน–เวลา)</span>}
                                 </td>
                               )}
-                              <td className="td-time">{b.time || "—"}{b.createdAt ? <span className="td-sub">สร้าง {new Date(b.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</span> : null}</td>
+                              <td className="td-time">{b.time || "—"}</td>
+                              {/* วันที่ "ทำการจอง" (สร้างรายการ) — คนละอย่างกับวันที่นัดด้านบน */}
+                              <td className="td-time">
+                                {b.createdAt
+                                  ? (() => { const cd = toISO(new Date(b.createdAt)); return <>{fmtDateShort(cd)}<span className="td-sub">{fmtDayShort(cd)} · {new Date(b.createdAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</span></>; })()
+                                  : "—"}
+                              </td>
                               <td className="td-qno"><b>{b.qno}</b></td>
                               <td className="td-name"><b>👤 {b.name}</b><span>{[b.phone && b.phone !== "-" ? b.phone : null, b.email ? "✉ " + b.email : null, b.code].filter(Boolean).join(" · ")}{b.note ? " · 📝 " + b.note : ""}</span></td>
                               <td>{chBadge(b.source, b.agencyCode)}</td>
                               <td>{s.icon} {s.name}<span className="td-sub">{item ? item.name : ""}</span></td>
                               <td>{b.rights}</td>
                               <td><span className={"badge " + meta.cls}>{meta.label}</span></td>
+                              {!isAg && (
                               <td onClick={(e) => e.stopPropagation()}><div className="row-actions">
                                 {b.status === "pending" && <button className="btn-confirm" onClick={() => rowAction(b.code, "confirmed")}>ยืนยัน</button>}
                                 {b.status !== "cancelled" && <button className="btn-confirm" onClick={() => openResched(b.code)}>เลื่อน</button>}
                                 {b.status === "confirmed" && <button className="btn-cancel-row" onClick={() => rowAction(b.code, "noshow")}>ไม่มา</button>}
                                 {b.status !== "cancelled" && <button className="btn-cancel-row" onClick={() => rowAction(b.code, "cancelled")}>ยกเลิก</button>}
                               </div></td>
+                              )}
                             </tr>
                           );
                         })}
@@ -1082,7 +1236,7 @@ export default function AdminPage() {
                       return (
                         <div className="upcoming-item" key={b.code}>
                           <span className="when">{fmtDateShort(b.date)} {b.time} น.</span>
-                          <span className="who"><b>{b.name}</b><span>{s.icon} {s.name} · คิวที่ {b.qno} · {contactOf(b)} · {chBadge(b.source, b.agencyCode)}</span></span>
+                          <span className="who who-click" title="คลิกเพื่อดูรายละเอียดผู้จอง" onClick={() => setDetail(b)}><b>{b.name}</b><span>{s.icon} {s.name} · คิวที่ {b.qno} · {contactOf(b)} · {chBadge(b.source, b.agencyCode)}</span></span>
                           <button className={"btn-called" + (called ? " done" : "")} disabled={called}
                             onClick={() => openCallResult(b)}>{called ? "✓ โทรแล้ว" : "📞 โทรแล้ว"}</button>
                         </div>
@@ -1130,7 +1284,7 @@ export default function AdminPage() {
                           <tr key={b.code}>
                             <td className="td-time">{new Date(b.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</td>
                             <td className="td-qno"><b>{b.code}</b><span className="td-sub">คำขอที่ {b.qno}</span></td>
-                            <td className="td-name"><b>{b.name}</b><span>{b.phone}{b.email ? " · ✉ " + b.email : ""}{b.note ? " · 📝 " + b.note : ""}</span></td>
+                            <td className="td-name td-name-click" title="คลิกเพื่อดูรายละเอียดผู้ขอ" onClick={() => setDetail(b)}><b>{b.name}</b><span>{b.phone}{b.email ? " · ✉ " + b.email : ""}{b.note ? " · 📝 " + b.note : ""}</span></td>
                             <td>{s.icon} {s.name}<span className="td-sub">{item ? item.name : ""}</span></td>
                             <td className="td-time">{b.date
                               ? <><b>{fmtDateShort(b.date)}</b><span className="td-sub">{fmtDayShort(b.date)} · เวลา {b.time} น.</span></>
@@ -1161,13 +1315,22 @@ export default function AdminPage() {
                 <p className="hint" style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
                   {reports ? (reports.mode === "all"
                     ? `ข้อมูลทุกวันตั้งแต่เริ่มใช้ระบบ · แนวโน้มกราฟแสดง 90 วันล่าสุด`
-                    : `ช่วง ${fmtDateShort(reports.from)} – ${fmtDateShort(reports.to)} · เฉลี่ย ${reports.kpi.avgPerDay} คิว/วัน (นับเฉพาะวันที่มีคิว)`) : "กำลังโหลด…"}
+                    : `${reports.mode === "range" ? "ช่วงที่เลือก" : "ช่วง"} ${fmtDateShort(reports.from)} – ${fmtDateShort(reports.to)} · เฉลี่ย ${reports.kpi.avgPerDay} คิว/วัน (นับเฉพาะวันที่มีคิว)`) : "กำลังโหลด…"}
                 </p>
               </div>
               <div className="rep-range">
                 {[["7", "7 วันล่าสุด"], ["30", "30 วันล่าสุด"], ["90", "90 วันล่าสุด"], ["all", "ทั้งหมด"]].map(([v, l]) => (
-                  <button key={v} type="button" className={"rep-range-btn" + (repDays === v ? " on" : "")} onClick={() => setRepDays(v)}>{l}</button>
+                  <button key={v} type="button" className={"rep-range-btn" + (!repCustom.from && !repCustom.to && repDays === v ? " on" : "")} onClick={() => { setRepCustom({ from: "", to: "" }); setRepDays(v); }}>{l}</button>
                 ))}
+                <span className="rep-range-sep">หรือช่วงวันที่</span>
+                <input type="date" className="rep-date-input" aria-label="จากวันที่" value={repCustom.from}
+                  onChange={(e) => setRepCustom((c) => ({ ...c, from: e.target.value }))} />
+                <span className="rep-range-sep">–</span>
+                <input type="date" className="rep-date-input" aria-label="ถึงวันที่" value={repCustom.to}
+                  onChange={(e) => setRepCustom((c) => ({ ...c, to: e.target.value }))} />
+                {repCustom.from && repCustom.to && (
+                  <button type="button" className="rep-range-btn on" onClick={() => setRepCustom({ from: "", to: "" })}>✕ กลับไปใช้ปุ่มช่วงวัน</button>
+                )}
               </div>
             </div>
             {reports && (() => {
@@ -1202,7 +1365,7 @@ export default function AdminPage() {
                         transform: `translate(${flipX ? "-100%" : "0"}, ${flipY ? "-100%" : "0"})`,
                       }}>
                         <b>{fmtFullTh(d.date)}</b>
-                        รวม {d.total} คิว · 🌐 ออนไลน์ {d.online} · 🚶 walk-in {d.walkin} · 🤝 ตัวแทน {d.agency}
+                        รวม {d.total} คิว · 🌐 Website {d.online} · 🚶 Online {d.walkin} · 🤝 ตัวแทน {d.agency}
                       </div>
                     );
                   })()}
@@ -1225,7 +1388,7 @@ export default function AdminPage() {
                         return (
                           <div className="rep-hover-info">
                             {d
-                              ? <><b>{fmtFullTh(d.date)}</b> — รวม {d.total} คิว · 🌐 ออนไลน์ {d.online} · 🚶 walk-in {d.walkin} · 🤝 ตัวแทน {d.agency}</>
+                              ? <><b>{fmtFullTh(d.date)}</b> — รวม {d.total} คิว · 🌐 Website {d.online} · 🚶 Online {d.walkin} · 🤝 ตัวแทน {d.agency}</>
                               : <span className="hint" style={{ color: "var(--muted)" }}>ชี้เมาส์ (หรือแตะ) ที่แท่งของวันใดก็ได้เพื่อดูรายละเอียด</span>}
                           </div>
                         );
@@ -1254,8 +1417,8 @@ export default function AdminPage() {
                         })()}
                       </div>
                       <div className="rep-legend">
-                        <span><i style={{ background: CH_COLORS.online }} /> ออนไลน์</span>
-                        <span><i style={{ background: CH_COLORS.walkin }} /> Walk-in</span>
+                        <span><i style={{ background: CH_COLORS.online }} /> Website</span>
+                        <span><i style={{ background: CH_COLORS.walkin }} /> Online</span>
                         <span><i style={{ background: CH_COLORS.agency }} /> ตัวแทน</span>
                       </div>
                     </div>
@@ -1327,7 +1490,7 @@ export default function AdminPage() {
                           <>
                             <thead><tr><th>รหัส</th><th>ตัวแทน</th><th>คิว</th><th>มาตามนัด</th><th>ไม่มา</th><th>ยกเลิก</th><th>รอยืนยัน</th><th>มาจริง</th><th>สัดส่วน</th></tr></thead>
                             <tbody>{reports.agencies.map((a) => {
-                              const names = Object.fromEntries(CONFIG.agencyCodes.map((x) => [x.code, x.name]));
+                              const names = Object.fromEntries(agencies.map((x) => [x.code, x.name]));
                               const maxA = reports.agencies[0].total || 1;
                               return (
                                 <tr key={a.code}>
@@ -1420,6 +1583,48 @@ export default function AdminPage() {
                   <Pager view={logView} kind="log" onPage={setLogPage} onSize={(sz) => { setLogSize(sz); setLogPage(1); }} />
                 </>
               )}
+            </div>
+          </section>
+        )}
+
+        {tab === "agencies" && (
+          <section className="admin-pane active">
+            <div className="table-card" style={{ padding: 20 }}>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🤝 ข้อมูลหลักตัวแทน (Master Data)</h2>
+              <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>
+                รหัส+ชื่อตัวแทนที่ใช้ทั่วระบบ (ตัวกรองตารางคิว · รายงาน · รับคิวชุด · นำเข้าไฟล์) — รหัสสร้างแล้วแก้ไม่ได้เพราะคิวเก่าอ้างอยู่ แต่แก้ชื่อ/ติดต่อได้ตลอด
+              </p>
+              <div className="admin-tools" style={{ marginBottom: 14 }}>
+                <span className="hint" style={{ alignSelf: "center", color: "var(--muted)", fontSize: "0.88rem" }}>
+                  {agencies.length} ตัวแทน ({agencies.filter((a) => a.active !== false).length} ที่เปิดใช้) · รวมคิวที่นำมา {agencies.reduce((n, a) => n + (a.bookings || 0), 0).toLocaleString("th-TH")} คิว
+                </span>
+                {can(me.role, "agency.manage") && <button className="btn btn-primary btn-sm" type="button" onClick={() => openAgencyModal(null)}>➕ เพิ่มตัวแทน</button>}
+              </div>
+              <table className="mini-table">
+                <thead><tr><th>รหัส</th><th>ชื่อตัวแทน</th><th>ติดต่อ</th><th>คิวในระบบ</th><th>บัญชีล็อกอิน</th><th>สถานะ</th>{can(me.role, "agency.manage") && <th>จัดการ</th>}</tr></thead>
+                <tbody>{agencies.map((a) => (
+                  <tr key={a.id}>
+                    <td><b>{a.code}</b></td>
+                    <td>{a.name}</td>
+                    <td>{a.contact || <span style={{ color: "var(--muted)" }}>—</span>}</td>
+                    <td><b>{(a.bookings || 0).toLocaleString("th-TH")}</b></td>
+                    <td>{a.hasAccount
+                      ? <span className="badge badge-confirmed">✓ มีบัญชี</span>
+                      : (can(me.role, "agency.manage")
+                        ? <button className="btn-confirm" onClick={() => agencyAction("genAccount", a)} title="สร้างบัญชีล็อกอินให้ตัวแทนรายนี้ (gen รหัสผ่านให้อัตโนมัติ)">🔑 สร้างบัญชี</button>
+                        : <span className="badge badge-cancelled">— ยังไม่มี</span>)}</td>
+                    <td>{a.active === false ? <span className="badge badge-cancelled">ปิดใช้</span> : <span className="badge badge-confirmed">ใช้งาน</span>}</td>
+                    {can(me.role, "agency.manage") && (
+                      <td><div className="row-actions">
+                        <button className="btn-confirm" onClick={() => agencyAction("edit", a)}>แก้ไข</button>
+                        <button className="btn-cancel-row" onClick={() => agencyAction("toggle", a)}>{a.active === false ? "เปิดใช้" : "ปิด"}</button>
+                        <button className="btn-cancel-row" onClick={() => agencyAction("delete", a)}>ลบ</button>
+                      </div></td>
+                    )}
+                  </tr>
+                ))}</tbody>
+              </table>
+              {!agencies.length && <div className="empty-state"><div style={{ fontSize: 40, marginBottom: 8 }}>🤝</div>ยังไม่มีตัวแทน — กด "เพิ่มตัวแทน" เพื่อเริ่ม</div>}
             </div>
           </section>
         )}
@@ -1519,6 +1724,26 @@ export default function AdminPage() {
                 </div>
                 <div style={{ height: 16 }} />
                 <div className="table-card" style={{ padding: 20 }}>
+                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>📣 ช่องทางผู้ป่วย (master data)</h2>
+                  <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>
+                    ตัวเลือก "ช่องทาง — ผู้ป่วยรู้จัก/มาจาก" ในหน้ารับคิว walk-in — เช่น Facebook, LINE, Google, เพื่อนแนะนำ
+                  </p>
+                  {chEdit.map((c, idx) => (
+                    <div className="svc-item-row" key={idx}>
+                      <input className="form-input" placeholder="ชื่อช่องทาง เช่น Facebook" value={c}
+                        onChange={(e) => setChEdit(chEdit.map((x, i) => i === idx ? e.target.value : x))} />
+                      <button type="button" className="btn-remove-item" title="ลบรายการนี้"
+                        onClick={() => setChEdit(chEdit.filter((_, i) => i !== idx))}>✕</button>
+                    </div>
+                  ))}
+                  <div className="slot-add" style={{ marginTop: 4 }}>
+                    <button className="btn btn-ghost btn-sm" type="button" onClick={() => setChEdit([...chEdit, ""])}>+ เพิ่มช่องทาง</button>
+                    <button className="btn btn-primary btn-sm" type="button" onClick={saveChannels}>บันทึก</button>
+                    <span className="hint" style={{ alignSelf: "center", color: "var(--muted)" }}>{chMsg}</span>
+                  </div>
+                </div>
+                <div style={{ height: 16 }} />
+                <div className="table-card" style={{ padding: 20 }}>
                   <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>📞 เงื่อนไขแท็บ "นัดที่กำลังจะถึง"</h2>
                   <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>กำหนดว่าแท็บนัดที่กำลังจะถึงจะดึงคิวช่วงไหน — มีผลทันที</p>
                   <div className="slot-add" style={{ flexWrap: "wrap" }}>
@@ -1551,7 +1776,7 @@ export default function AdminPage() {
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>เพิ่ม/แก้ไขบัญชีและสิทธิ์การใช้งาน — ตั้งรหัสผ่านใหม่ได้จากปุ่ม "แก้ไข" (เว้นว่างไว้ = คงรหัสเดิม)</p>
               <div className="admin-tools" style={{ marginBottom: 14 }}>
                 <span className="hint" style={{ alignSelf: "center", color: "var(--muted)", fontSize: "0.88rem" }}>
-                  {staff.length} บัญชี ({staff.filter((u) => u.role === "admin").length} admin · {staff.filter((u) => u.role === "sale").length} sale · {staff.filter((u) => u.role === "cs").length} cs)
+                  {staff.length} บัญชี ({staff.filter((u) => u.role === "admin").length} admin · {staff.filter((u) => u.role === "sale").length} sale · {staff.filter((u) => u.role === "cs").length} cs · {staff.filter((u) => u.role === "agency").length} ตัวแทน)
                 </span>
                 <button className="btn btn-primary btn-sm" type="button" onClick={() => openUserModal(null)}>➕ เพิ่มผู้ใช้</button>
               </div>
@@ -1560,7 +1785,7 @@ export default function AdminPage() {
                 <tbody>{staff.map((u) => (
                   <tr key={u.id}>
                     <td><b>👤 {u.name}</b>{u.id === me.id ? <span className="td-sub"> (บัญชีที่ใช้อยู่)</span> : null}</td>
-                    <td>{u.username}</td>
+                    <td>{u.username}{u.agencyCode ? <span className="td-sub">🤝 {u.agencyCode}</span> : null}</td>
                     <td><span className={"badge role-" + u.role}>{roleLabel(u.role)}</span></td>
                     <td><div className="row-actions">
                       <button className="btn-confirm" onClick={() => openUserModal(u)}>แก้ไข</button>
@@ -1573,7 +1798,7 @@ export default function AdminPage() {
             <div style={{ height: 16 }} />
             <div className="table-card" style={{ padding: 20 }}>
               <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🔑 สิทธิ์ของแต่ละบทบาท</h2>
-              <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>ทุกบทบาททำงานคิวพื้นฐานได้ (ดู/ค้นหา/ยืนยัน/เลื่อน/ยกเลิก, รับ walk-in, โทรยืนยัน, จัดนัดหมาย, รายงาน) — ต่างกันที่ส่วนเพิ่มด้านล่าง</p>
+              <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>ทุกบทบาททำงานคิวพื้นฐานได้ (ดู/ค้นหา/ยืนยัน/เลื่อน/ยกเลิก, รับ walk-in, โทรยืนยัน, จัดนัดหมาย) — ต่างกันที่ส่วนเพิ่มด้านล่าง · รายงาน / ประวัติการใช้งาน / จัดการบริการ เป็นสิทธิ์ผู้ดูแลระบบเท่านั้น</p>
               <table className="mini-table">
                 <thead><tr><th>บทบาท</th><th>ทำส่วนเพิ่มนี้ได้</th></tr></thead>
                 <tbody>
@@ -1583,6 +1808,8 @@ export default function AdminPage() {
                     <td>งานตัวแทน: รับคิวเป็นชุด และนำเข้าคิวจากไฟล์ Excel/CSV ของตัวแทน</td></tr>
                   <tr><td><span className="badge role-cs">{ROLES.cs.label}</span></td>
                     <td>งานคิวพื้นฐานอย่างเดียว</td></tr>
+                  <tr><td><span className="badge role-agency">{ROLES.agency.label}</span></td>
+                    <td>เห็นเฉพาะคิวของตัวแทนที่ผูกกับบัญชี + เพิ่มคิวเองได้ (รายคน/ชุด/นำเข้าไฟล์) — แก้ไข/ยกเลิก และเมนูอื่นทั้งหมดไม่ได้ (ติดต่อเจ้าหน้าที่ รพ.)</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1591,6 +1818,8 @@ export default function AdminPage() {
           </div>
         </main>
       </div>
+
+      {/* โมดัลตัวแทนจองคิวลูกค้าเอง (role agency) — เคารพความจุ ผูกรหัสตัวแทนจากบัญชีอัตโนมัติ */}
 
       {/* โมดัลรับคิว walk-in */}
       <Modal show={!!walkin} onClose={() => setWalkin(null)}>
@@ -1638,8 +1867,19 @@ export default function AdminPage() {
                     {(rightsCfg.length ? rightsCfg : CONFIG.rightsOptions.map((r) => ({ th: r }))).map((r) => <option key={r.th}>{r.th}</option>)}
                   </select>
                 </div>
-                <div className="form-field"><label>รหัสตัวแทน (ถ้ามาจากตัวแทน)</label>
-                  <input className="form-input" placeholder="เช่น AG-001 (เว้นว่างถ้าไม่มี)" value={walkin.agency} onChange={(e) => setWalkin({ ...walkin, agency: e.target.value })} />
+                <div className="form-field"><label>ตัวแทน — ถ้าผู้ป่วยมาจากตัวแทน</label>
+                  <select className="form-select" value={walkin.agency} onChange={(e) => setWalkin({ ...walkin, agency: e.target.value })}>
+                    <option value="">ไม่ใช่ — ผู้ป่วยมาเอง</option>
+                    {agencies.filter((a) => a.active !== false).map((a) => (
+                      <option key={a.code} value={a.code}>🤝 {a.code} — {a.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-field"><label>ช่องทาง — ผู้ป่วยรู้จัก/มาจาก</label>
+                  <select className="form-select" value={walkin.channel} onChange={(e) => setWalkin({ ...walkin, channel: e.target.value })}>
+                    <option value="">— ไม่ระบุ —</option>
+                    {(chCfg.length ? chCfg : ["Facebook", "LINE", "อื่น ๆ"]).map((c) => <option key={c}>{c}</option>)}
+                  </select>
                 </div>
               </div>
               <div className="modal-actions">
@@ -1656,15 +1896,21 @@ export default function AdminPage() {
         {batch && (
           <>
             <h2>📦 รับคิวเป็นชุดจากตัวแทน</h2>
-            <p className="hint">วางรายชื่อจาก LINE / Excel — บรรทัดละ 1 คน รูปแบบ <b>ชื่อ, เบอร์โทร, อีเมล</b> (คั่น comma/tab ก็ได้ เบอร์กับอีเมลเว้นว่างได้) — <b>แนะนำใส่เบอร์ทุกคน</b> ไม่ใส่ก็ได้แต่จะติดต่อผู้ป่วยรายนั้นไม่ได้</p>
+            <p className="hint">กรอกรายชื่อทีละคน แล้วกด <b>+ เพิ่มคน</b> สำหรับคนถัดไป (กด Enter ในช่องก็เพิ่มได้) — ช่องติดต่อใส่ <b>เบอร์โทรหรืออีเมล</b>อย่างใดอย่างหนึ่งก็ได้ ไม่ใส่ก็ได้แต่จะติดต่อผู้ป่วยรายนั้นไม่ได้</p>
             <form onSubmit={submitBatch} noValidate>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
+                {isAg ? (
+                  <div className="form-field"><label>ตัวแทน (บัญชีของท่าน)</label>
+                    <input className="form-input" value={`🤝 ${me.agencyCode} — ${agencies.find((a) => a.code === me.agencyCode)?.name || ""}`} disabled />
+                  </div>
+                ) : (
                 <div className={"form-field" + (batch.invalid && !batch.agency.trim() ? " invalid" : "")}>
                   <label>รหัสตัวแทน *</label>
                   <input className="form-input" list="agencyList" placeholder="เช่น AG-001" value={batch.agency} onChange={(e) => setBatch({ ...batch, agency: e.target.value })} />
-                  <datalist id="agencyList">{CONFIG.agencyCodes.map((a) => <option key={a.code} value={a.code}>{a.name}</option>)}</datalist>
+                  <datalist id="agencyList">{agencies.filter((a) => a.active !== false).map((a) => <option key={a.code} value={a.code}>{a.name}</option>)}</datalist>
                   <span className="err">กรุณาใส่รหัสตัวแทน</span>
                 </div>
+                )}
                 <div className="form-field"><label>บริการ *</label>
                   <select className="form-select" value={batch.service} onChange={(e) => { setBatch({ ...batch, service: e.target.value }); fillBatchTimes(e.target.value, batch.date); }}>
                     {services.filter((s) => s.active !== false).map((s) => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
@@ -1687,22 +1933,40 @@ export default function AdminPage() {
                     {(rightsCfg.length ? rightsCfg : CONFIG.rightsOptions.map((r) => ({ th: r }))).map((r) => <option key={r.th}>{r.th}</option>)}
                   </select>
                 </div>
-                <div className={"form-field" + (batch.invalid && !batch.names.split("\n").map((l) => l.trim()).filter(Boolean).length ? " invalid" : "")}>
-                  <label>รายชื่อ (บรรทัดละ 1 คน) *</label>
-                  <textarea className="form-input" rows={6} placeholder={"สมชาย ใจดี, 0812345678\nAye Chan, +959876543210, aye@email.com"} value={batch.names} onChange={(e) => setBatch({ ...batch, names: e.target.value })} />
+                <div className={"form-field" + (batch.invalid && !(batch.people || []).some((p) => String(p.name || "").trim()) ? " invalid" : "")}>
+                  <label>รายชื่อ — กรอกทีละคน กด + เพิ่มคนถัดไป *</label>
+                  <div className="batch-people">
+                    {(batch.people || []).map((p, i) => (
+                      <div className="batch-person" key={i}>
+                        <span className="bp-num">{i + 1}</span>
+                        <input className="form-input" placeholder="ชื่อ-นามสกุล" value={p.name}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setBatch((b) => ({ ...b, people: [...b.people, { name: "", contact: "" }] })); } }}
+                          onChange={(e) => setBatch((b) => ({ ...b, people: b.people.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)) }))} />
+                        <input className="form-input" placeholder="เบอร์โทร หรือ อีเมล" value={p.contact}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setBatch((b) => ({ ...b, people: [...b.people, { name: "", contact: "" }] })); } }}
+                          onChange={(e) => setBatch((b) => ({ ...b, people: b.people.map((x, j) => (j === i ? { ...x, contact: e.target.value } : x)) }))} />
+                        {batch.people.length > 1 && (
+                          <button type="button" className="bp-del" aria-label={"ลบรายชื่อคนที่ " + (i + 1)}
+                            onClick={() => setBatch((b) => ({ ...b, people: b.people.filter((_, j) => j !== i) }))}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" className="btn btn-ghost btn-sm bp-add"
+                      onClick={() => setBatch((b) => ({ ...b, people: [...b.people, { name: "", contact: "" }] }))}>+ เพิ่มคน</button>
+                  </div>
                   {(() => {
-                    const rows = batch.names.split("\n").map((l) => l.trim()).filter(Boolean)
-                      .map((line) => { const parts = line.split(/[,;\t]/).map((p) => p.trim()); return { name: parts[0] || "", phone: parts[1] || "", email: parts[2] || "" }; })
+                    const rows = (batch.people || [])
+                      .map((p) => ({ name: String(p.name || "").trim(), contact: String(p.contact || "").trim() }))
                       .filter((r) => r.name);
-                    const noPhone = rows.filter((r) => !r.phone).length;
+                    const noContact = rows.filter((r) => !r.contact).length;
                     if (!rows.length) return null;
                     return (
-                      <span className="hint" style={{ display: "block", marginTop: 6, fontSize: "0.85rem", color: noPhone ? "#b45309" : "var(--muted)" }}>
-                        นับได้ {rows.length} คน{noPhone ? ` — ⚠️ มี ${noPhone} คนที่ยังไม่ได้ใส่เบอร์โทร (จะติดต่อไม่ได้)` : " — ทุกคนมีเบอร์โทรครบ ✓"}
+                      <span className="hint" style={{ display: "block", marginTop: 6, fontSize: "0.85rem", color: noContact ? "#b45309" : "var(--muted)" }}>
+                        กรอกแล้ว {rows.length} คน{noContact ? ` — ⚠️ มี ${noContact} คนที่ยังไม่ได้ใส่ช่องทางติดต่อ (จะติดต่อไม่ได้)` : " — ทุกคนมีช่องทางติดต่อครบ ✓"}
                       </span>
                     );
                   })()}
-                  <span className="err">ต้องมีรายชื่ออย่างน้อย 1 คน</span>
+                  <span className="err">ต้องมีรายชื่ออย่างน้อย 1 คน (กรอกชื่อ)</span>
                 </div>
               </div>
               <div className="modal-actions">
@@ -1758,12 +2022,19 @@ export default function AdminPage() {
               </>
             )}
             <form onSubmit={submitImport} noValidate>
+              {isAg ? (
+                <div className="form-field" style={{ marginTop: 14 }}>
+                  <label>ตัวแทนของทั้งไฟล์นี้ (บัญชีของท่าน)</label>
+                  <input className="form-input" value={`🤝 ${me.agencyCode} — ${agencies.find((a) => a.code === me.agencyCode)?.name || ""}`} disabled />
+                </div>
+              ) : (
               <div className={"form-field" + (imp.invalid && !imp.agency.trim() ? " invalid" : "")} style={{ marginTop: 14 }}>
                 <label>รหัสตัวแทนของทั้งไฟล์นี้ *</label>
                 <input className="form-input" list="agencyList2" placeholder="เช่น AG-001" value={imp.agency} onChange={(e) => setImp({ ...imp, agency: e.target.value })} />
-                <datalist id="agencyList2">{CONFIG.agencyCodes.map((a) => <option key={a.code} value={a.code}>{a.name}</option>)}</datalist>
+                <datalist id="agencyList2">{agencies.filter((a) => a.active !== false).map((a) => <option key={a.code} value={a.code}>{a.name}</option>)}</datalist>
                 <span className="err">กรุณาใส่รหัสตัวแทน</span>
               </div>
+              )}
               <div className="modal-actions">
                 <button className="btn btn-ghost btn-sm" type="button" onClick={() => setImp(null)}>ยกเลิก</button>
                 <button className="btn btn-primary btn-sm" type="submit" disabled={!impOk.length}>
@@ -2081,6 +2352,7 @@ export default function AdminPage() {
                 {item && <div><dt>รายการ</dt><dd>{item.name}</dd></div>}
                 <div><dt>วัน–เวลานัด</dt><dd>{detail.date ? <>{fmtFullTh(detail.date)} เวลา {detail.time} น.</> : "📞 รอนัดหมาย — ยังไม่มีวัน–เวลานัด"}</dd></div>
                 <div><dt>สิทธิการรักษา</dt><dd>{detail.rights || "—"}</dd></div>
+                {detail.channel ? <div><dt>ช่องทาง</dt><dd>{detail.channel}</dd></div> : null}
                 {detail.agencyCode ? <div><dt>รหัสตัวแทน</dt><dd>{detail.agencyCode}</dd></div> : null}
                 <div><dt>หมายเหตุ</dt><dd>{detail.note || "—"}</dd></div>
                 <div><dt>สร้างเมื่อ</dt><dd>{detail.createdAt ? new Date(detail.createdAt).toLocaleString("th-TH", { dateStyle: "full", timeStyle: "short" }) + " น." : "—"}</dd></div>
@@ -2139,6 +2411,102 @@ export default function AdminPage() {
         })()}
       </Modal>
 
+      {/* โมดัลสร้างบัญชีให้ตัวแทนเดิม (ปุ่ม 🔑 ในตาราง) — ตั้งรหัสผ่านเองได้ เว้นว่างให้ระบบสุ่ม */}
+      <Modal show={!!genAcct} onClose={() => setGenAcct(null)}>
+        {genAcct && (
+          <>
+            <h2>🔑 สร้างบัญชีตัวแทน</h2>
+            <p className="hint">{genAcct.code} — {genAcct.name}<br />ชื่อผู้ใช้ระบบ gen จากรหัสให้อัตโนมัติ · รหัสผ่านตั้งเองได้ หรือเว้นว่างให้ระบบสุ่มให้ (แสดงครั้งเดียวหลังบันทึก)</p>
+            <form onSubmit={submitGenAcct} noValidate>
+              <div className={"form-field" + (genAcct.invalid ? " invalid" : "")}>
+                <label>รหัสผ่าน (ถ้ามี)</label>
+                <input className="form-input" type="text" autoComplete="off" placeholder="เว้นว่าง = ระบบสุ่มให้ 8 ตัว" value={genAcct.password} onChange={(e) => setGenAcct({ ...genAcct, password: e.target.value })} />
+                <span className="err">รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร</span>
+              </div>
+              <div className="modal-actions">
+                <button className="btn btn-ghost btn-sm" type="button" onClick={() => setGenAcct(null)}>ยกเลิก</button>
+                <button className="btn btn-primary btn-sm" type="submit">สร้างบัญชี ✓</button>
+              </div>
+            </form>
+          </>
+        )}
+      </Modal>
+
+      {/* โมดัลแสดงบัญชีที่เพิ่งสร้างให้ตัวแทน — รหัสผ่านแสดงครั้งเดียว ปิดแล้วดูไม่ได้อีก */}
+      <Modal show={!!creds} onClose={() => setCreds(null)}>
+        {creds && (() => {
+          const copyAll = async () => {
+            const text = creds.map((c) => `ตัวแทน ${c.code}\nผู้ใช้: ${c.username}\nรหัสผ่าน: ${c.password}`).join("\n\n");
+            try { await navigator.clipboard.writeText(text); }
+            catch {
+              const ta = document.createElement("textarea");
+              ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+            }
+            alert("คัดลอกแล้ว — นำไปส่งตัวแทนได้เลย");
+          };
+          return (
+            <>
+              <h2>🔑 บัญชีตัวแทนที่สร้างใหม่</h2>
+              <p className="hint">⚠️ รหัสผ่านแสดงครั้งเดียวเท่านั้น — คัดลอกเก็บไว้ส่งให้ตัวแทนก่อนปิดหน้าต่าง (ถ้าหายต้องตั้งรหัสใหม่ที่เมนูจัดการผู้ใช้)</p>
+              <table className="mini-table" style={{ width: "100%" }}>
+                <thead><tr><th>ตัวแทน</th><th>ผู้ใช้</th><th>รหัสผ่าน</th></tr></thead>
+                <tbody>{creds.map((c) => (
+                  <tr key={c.code}>
+                    <td><b>{c.code}</b></td>
+                    <td><b>{c.username}</b></td>
+                    <td style={{ fontFamily: "monospace", fontSize: "1.05rem" }}>{c.password}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+              <div className="modal-actions">
+                <button className="btn btn-ghost btn-sm" type="button" onClick={copyAll}>📋 คัดลอกทั้งหมด</button>
+                <button className="btn btn-primary btn-sm" type="button" onClick={() => setCreds(null)}>เก็บรหัสแล้ว ✓</button>
+              </div>
+            </>
+          );
+        })()}
+      </Modal>
+
+      {/* โมดัลเพิ่ม/แก้ไขตัวแทน (master data) */}
+      <Modal show={!!agencyModal} onClose={() => setAgencyModal(null)}>
+        {agencyModal && (
+          <>
+            <h2>{agencyModal.id ? "✏️ แก้ไขตัวแทน" : "➕ เพิ่มตัวแทน"}</h2>
+            <p className="hint">{agencyModal.id ? "แก้ชื่อ/ช่องทางติดต่อได้ — รหัสห้ามแก้เพราะคิวเก่าอ้างอยู่" : "ตั้งรหัส+ชื่อตัวแทน ใช้ได้ทันทีทั้งระบบ — บันทึกแล้วระบบสร้างบัญชีล็อกอินให้อัตโนมัติ (ตั้งรหัสผ่านเองได้ หรือเว้นว่างให้ระบบสุ่ม — แสดงครั้งเดียว)"}</p>
+            <form onSubmit={submitAgency} noValidate>
+              <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
+                <div className={"form-field" + (agencyModal.invalid && !/^[A-Z0-9-]{2,20}$/.test(agencyModal.code) ? " invalid" : "")}>
+                  <label>รหัสตัวแทน *</label>
+                  <input className="form-input" value={agencyModal.code} placeholder="เช่น AG-004" disabled={!!agencyModal.id}
+                    onChange={(e) => setAgencyModal({ ...agencyModal, code: e.target.value.toUpperCase() })} />
+                  <span className="err">ตัวอังกฤษพิมพ์ใหญ่ ตัวเลข ขีดกลาง ยาว 2–20 ตัว ห้ามซ้ำ</span>
+                </div>
+                <div className={"form-field" + (agencyModal.invalid && !agencyModal.name.trim() ? " invalid" : "")}>
+                  <label>ชื่อตัวแทน *</label>
+                  <input className="form-input" value={agencyModal.name} placeholder="เช่น บริษัท ตรวจสุขภาพพลัส จำกัด" onChange={(e) => setAgencyModal({ ...agencyModal, name: e.target.value })} />
+                  <span className="err">กรุณากรอกชื่อ</span>
+                </div>
+                <div className="form-field">
+                  <label>ช่องทางติดต่อ (ถ้ามี)</label>
+                  <input className="form-input" value={agencyModal.contact} placeholder="เบอร์โทร / อีเมล / ไลน์ ID" onChange={(e) => setAgencyModal({ ...agencyModal, contact: e.target.value })} />
+                </div>
+                {!agencyModal.id && (
+                <div className={"form-field" + (agencyModal.invalid && agencyModal.password.trim() && agencyModal.password.trim().length < 6 ? " invalid" : "")}>
+                  <label>รหัสผ่านบัญชีตัวแทน (ถ้ามี)</label>
+                  <input className="form-input" type="text" autoComplete="off" placeholder="เว้นว่าง = ระบบสุ่มให้ 8 ตัว" value={agencyModal.password} onChange={(e) => setAgencyModal({ ...agencyModal, password: e.target.value })} />
+                  <span className="err">รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร</span>
+                </div>
+                )}
+              </div>
+              <div className="modal-actions">
+                <button className="btn btn-ghost btn-sm" type="button" onClick={() => setAgencyModal(null)}>ยกเลิก</button>
+                <button className="btn btn-primary btn-sm" type="submit">{agencyModal.id ? "บันทึก ✓" : "เพิ่มตัวแทน ✓"}</button>
+              </div>
+            </form>
+          </>
+        )}
+      </Modal>
+
       {/* โมดัลเพิ่ม/แก้ไขผู้ใช้ (admin) */}
       <Modal show={!!userModal} onClose={() => setUserModal(null)}>
         {userModal && (
@@ -2163,6 +2531,16 @@ export default function AdminPage() {
                     {Object.entries(ROLES).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}
                   </select>
                 </div>
+                {userModal.role === "agency" && (
+                <div className={"form-field" + (userModal.invalid && !userModal.agency ? " invalid" : "")}>
+                  <label>รหัสตัวแทนที่ผูกกับบัญชีนี้ *</label>
+                  <select className="form-select" value={userModal.agency} onChange={(e) => setUserModal({ ...userModal, agency: e.target.value })}>
+                    <option value="">— เลือกตัวแทน —</option>
+                    {agencies.filter((a) => a.active !== false).map((a) => <option key={a.id} value={a.code}>{a.code} — {a.name}</option>)}
+                  </select>
+                  <span className="err">บัญชีตัวแทนต้องเลือกรหัสตัวแทน (เพิ่มได้ที่เมนู "ตัวแทน")</span>
+                </div>
+                )}
                 <div className={"form-field" + (userModal.invalid && ((!userModal.id && userModal.password.length < 6) || (userModal.password && userModal.password.length < 6)) ? " invalid" : "")}>
                   <label>{userModal.id ? "รหัสผ่านใหม่ (เว้นว่าง = ไม่เปลี่ยน)" : "รหัสผ่าน *"}</label>
                   <input className="form-input" type="password" autoComplete="new-password" value={userModal.password} onChange={(e) => setUserModal({ ...userModal, password: e.target.value })} />
