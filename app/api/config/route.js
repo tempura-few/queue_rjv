@@ -11,5 +11,6 @@ export async function GET() {
     rights: core.rightsAll(), // [{th, en}] — หน้าจองใช้แสดง dropdown ตามภาษา (ค่าที่ส่มไปบันทึกคือ th)
     upcoming: { days: core.upcomingDays(), includeToday: core.upcomingIncludeToday(), includeNoshow: core.upcomingIncludeNoshow() },
     channels: core.channelsAll(), // รายการช่องทางผู้ป่วย (master data) ใช้ในหน้ารับคิว walk-in
-  });
+    retentionDays: core.retentionDays(), // PDPA: จำนวนวันที่เก็บข้อมูลการจองก่อนลบอัตโนมัติ (แสดงในแท็บตั้งค่า — แก้ผ่าน /api/settings)
+  }, { headers: { "Cache-Control": "no-store" } });
 }

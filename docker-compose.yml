@@ -34,8 +34,10 @@ services:
     environment:
       - TZ=Asia/Bangkok
       - PORT=8124
-      # คีย์เซ็น JWT — ตั้งค่าถาวร token จึงไม่ตายทุกครั้งที่ restart (production: เปลี่ยนเป็นค่าของจริง)
-      - AUTH_SECRET=${AUTH_SECRET:-e8b6b53f48c056b67fd1c0adbc2d87d10777640d0f70ac0264c8d2f8cfe8aff0}
+      # คีย์เซ็น JWT — PDPA: ห้าม hardcode ค่า fallback ในไฟล์ที่ commit ขึ้น repo
+      # ต้องตั้งผ่าน .env ของเครื่องนั้น ๆ เท่านั้น (สร้างค่าสุ่ม: openssl rand -hex 32)
+      # ถ้าไม่ตั้ง — docker compose จะไม่ start (ขึ้น error) เพื่อไม่ให้เผลอใช้คีย์ที่หลุดสาธารณะ
+      - "AUTH_SECRET=${AUTH_SECRET:?ต้องตั้ง AUTH_SECRET ใน .env ก่อน (สร้างด้วย openssl rand -hex 32)}"
       # - AUTH_TTL_HOURS=12         # อายุ token (ชม.) ค่าเริ่มต้น 12
       # ---- โหมดหลัก: MySQL/MariaDB (ตัว compose นี้รัน MySQL คู่กันใน service "mysql" ด้านบน) ----
       - STORAGE=mysql
@@ -44,6 +46,8 @@ services:
       - MYSQL_USER=${MYSQL_USER:-queueapp}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-dev-app-pass}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-hospital_queue}
+      # คีย์เข้ารหัสข้อมูล at rest (PDPA) — json: ทั้งไฟล์ข้อมูล · mysql: รายฟิลด์ PII ในตาราง · ดู .env.example
+      - "DATA_KEY=${DATA_KEY:-}"
       # ถ้าจะใช้ MySQL ที่ติดตั้งบนเครื่องโฮสต์แทน container: ลบ service mysql ออก แล้วเปลี่ยน MYSQL_HOST=host.docker.internal
       # (Linux: ใช้ 172.17.0.1 หรือ --network host)
       # ถ้าอยากใช้โหมดไฟล์แทน: เปลี่ยน STORAGE=json แล้วลบ MYSQL_* ทิ้งได้เลย

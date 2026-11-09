@@ -5,6 +5,23 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  // PDPA/Security: header พื้นฐานทุกหน้า — กัน MIME sniffing, กันถูกฝัง iframe (clickjacking), จำกัด referer
+  // (ส่วน HTTPS/HSTS จบที่ nginx — ดู deploy/nginx-queue.conf)
+  async headers() {
+    const common = [
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+      { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+    ];
+    return [
+      // หน้าสาธารณะ (/, /booking, /success) ไม่ใส่ X-Frame-Options — รองรับโหมด embed (?embed=1)
+      // ที่โรงพยาบาลฝังหน้าจองใน WordPress ผ่าน iframe
+      { source: "/:path*", headers: common },
+      // หน้าหลังบ้าน/ล็อกอิน: ห้ามฝัง iframe เด็ดขาด (clickjacking)
+      { source: "/admin", headers: [...common, { key: "X-Frame-Options", value: "DENY" }] },
+      { source: "/login", headers: [...common, { key: "X-Frame-Options", value: "DENY" }] },
+    ];
+  },
   async rewrites() {
     return [
       { source: "/index.html", destination: "/" },

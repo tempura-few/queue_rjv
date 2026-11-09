@@ -3,3 +3,15 @@ data
 *.log
 .DS_Store
 .next
+# PDPA/secrets: ห้ามให้ไฟล์ความลับเข้า build context → image เด็ดขาด
+# (Next.js standalone ก๊อป .env ของโปรเจกต์ติดเข้า .next/standalone ด้วย
+#  ถ้าไม่กันไว้ ใครได้ image ไป docker cp คีย์ออกมาอ่านได้เลย)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.git
+.zcode
+gui-test-screenshots
+*.xlsx

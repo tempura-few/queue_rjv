@@ -28,6 +28,11 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE:-hospital_queue}
       # คีย์เซ็น JWT — ตั้งถาวรใน .env token จึงไม่ตายทุกครั้งที่ restart
       - AUTH_SECRET=${AUTH_SECRET:?set in /opt/queue_rjv/.env}
+      # คีย์เข้ารหัสข้อมูล at rest (PDPA) — ควรตั้งเสมอทั้ง 2 โหมด:
+      #   json  → เข้ารหัสทั้งไฟล์ data/app-data.json
+      #   mysql → เข้ารหัสรายฟิลด์ PII ในตาราง (ชื่อ/เบอร์/อีเมล/หมายเหตุ/contact/audit detail)
+      # สร้างด้วย openssl rand -hex 32 ใส่ใน /opt/queue_rjv/.env — ทำหายคือกู้ข้อมูลไม่ได้
+      - DATA_KEY=${DATA_KEY:-}
       # - AUTH_TTL_HOURS=12
       # - ADMIN_PASSWORD=...   # ใช้ตอนเริ่มระบบครั้งแรก จะได้ไม่ต้องใช้ admin/admin
     volumes:

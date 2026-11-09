@@ -33,7 +33,7 @@ export async function POST(request) {
       agencyCode, source: "agency",
       note: a.note || `นำเข้าจากไฟล์โดยตัวแทน ${agencyCode}`,
       status: "confirmed",
-    });
+    }, { consentVia: "staff" }); // PDPA: ตัวแทนรับยินยอมจากผู้ป่วยแล้วก่อนส่งไฟล์เข้าระบบ
     if (!res2.ok) { skipped.push({ row: a.row, name: a.name, error: res2.error }); continue; }
     if (!a.phone) res2.booking.phone = "-"; // ตัวแทนไม่ระบุเบอร์ — เก็บเป็นขีดแทนเบอร์ปลอม
     await core.store.addBooking(res2.booking);

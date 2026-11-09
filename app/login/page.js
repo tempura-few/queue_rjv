@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, authSave } from "@/lib/client.js";
+import { api, authSave, authClear } from "@/lib/client.js";
 import { CONFIG } from "@/lib/config.js";
 
 export default function LoginPage() {
@@ -24,8 +24,9 @@ export default function LoginPage() {
     setInvalid(false);
     setBusy(true);
     try {
-      const { token } = await api("/api/login", { method: "POST", body: JSON.stringify({ username: username.trim(), password }) });
-      authSave(token); // JWT เก็บใน localStorage — ทุกคำขอถัดไปแนบผ่าน header อัตโนมัติ (ดู lib/client.js)
+      await api("/api/login", { method: "POST", body: JSON.stringify({ username: username.trim(), password }) });
+      authSave(); // PDPA: JWT อยู่ใน httpOnly cookie ที่ server ตั้งให้แล้ว — ไม่เก็บ token ใน localStorage อีก (ล้างของเก่าที่อาจค้าง)
+      authClear();
       router.push("/admin");
     } catch {
       setInvalid(true);

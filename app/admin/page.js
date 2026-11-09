@@ -14,6 +14,8 @@ const ACT = {
   export_csv: "ส่งออก CSV", services_update: "แก้ไขบริการ", slots_update: "แก้ไขช่วงเวลากลาง",
   agency_import: "นำเข้าคิวจากไฟล์ (ตัวแทน)", agency_import_parse: "ตรวจไฟล์นำเข้า", settings_update: "แก้ไขค่าตั้ง",
   user_create: "เพิ่มผู้ใช้", user_update: "แก้ไขผู้ใช้", user_delete: "ลบผู้ใช้",
+  callback_request: "คำขอรอนัดหมาย", pii_reveal: "เปิดดูเบอร์/อีเมลผู้ป่วย", booking_erase: "ลบข้อมูลผู้ป่วย (PDPA)",
+  retention_purge: "ล้างข้อมูลเก่าอัตโนมัติ", agencies_update: "แก้ไข master data ตัวแทน", agencies_seed: "สร้าง master data ตัวแทน",
 };
 const roleLabel = (r) => (ROLES[r] ? ROLES[r].label : r);
 const SVC_ICONS = ["🩺", "🦷", "✨", "💉", "🌿", "🧠", "👁️", "🦴", "💆", "👶", "🫀", "🔬"];
@@ -102,6 +104,10 @@ export default function AdminPage() {
   const [daysAheadVal, setDaysAheadVal] = useState(14);
   const [daysAheadOrig, setDaysAheadOrig] = useState(14);
   const [daysAheadMsg, setDaysAheadMsg] = useState("");
+  // PDPA: จำนวนวันที่เก็บข้อมูลการจองก่อนลบอัตโนมัติ (retention)
+  const [retentionVal, setRetentionVal] = useState(365);
+  const [retentionOrig, setRetentionOrig] = useState(365);
+  const [retentionMsg, setRetentionMsg] = useState("");
   // สิทธิการรักษา (Payment / coverage) — rightsCfg = ค่าที่ใช้จริงตามค่าตั้ง, rightsEdit = ฉบับแก้ไขในหน้าตั้งค่า
   const [rightsCfg, setRightsCfg] = useState([]);
   // ช่องทางผู้ป่วย (master data) — chCfg = ที่ใช้จริง, chEdit = ฉบับแก้ไขในหน้าตั้งค่า
@@ -127,6 +133,9 @@ export default function AdminPage() {
   const [svcModal, setSvcModal] = useState(null); // {id,icon,name,desc,cap,items,slotsWorking,days}
   // popup รายละเอียดผู้จอง — เปิดจากการคลิกแถวในตารางคิวรายวัน (นอกคอลัมน์ "จัดการ")
   const [detail, setDetail] = useState(null);
+  // PDPA: เบอร์/อีเมลที่ "เปิดดูค่าเต็ม" รายรายการ — server ส่งค่าปิดบังมาทุกรายการ
+  // เจ้าหน้าที่กด 👁 เพื่อ reveal → เรียก /api/bookings/[code]/reveal ซึ่งบันทึก audit ทุกครั้งที่เปิดดู
+  const [revealed, setRevealed] = useState({});
   // โมดัลตัวแทนจองคิวลูกค้าเอง (role agency) — {name,contact,service,date,time,times,rights,note}
   // แท็บ "ปฏิทินว่าง" — ภาพรวมที่นั่งคงเหลือรายเดือนของทุกบริการ
   const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); });
@@ -146,6 +155,34 @@ export default function AdminPage() {
   const impFileRef = useRef(null);
 
   const svc = useCallback((id) => getService(services, id) || { icon: "❓", name: "บริการที่ถูกลบ", items: [] }, [services]);
+
+  // ---------- PDPA: reveal ข้อมูลติดต่อรายรายการ ----------
+  // ค่าที่แสดง = ค่าเต็มที่ reveal แล้ว (ถ้ามี) มิฉะนั้นใช้ค่าปิดบังที่ server ส่งมา (เช่น 08x-xxx-234 / s***@mail.com)
+  const phoneShow = (b) => (revealed[b.code] ? (revealed[b.code].phone || "") : (b.phone || ""));
+  const emailShow = (b) => (revealed[b.code] ? (revealed[b.code].email || "") : (b.email || ""));
+  const contactShow = (b) => { const p = phoneShow(b); return p && p !== "-" ? p : emailShow(b) ? "✉ " + emailShow(b) : "ไม่มีช่องทางติดต่อ"; };
+  async function revealContact(code) {
+    if (revealed[code]) return;
+    try { const r = await api(`/api/bookings/${code}/reveal`); setRevealed((m) => ({ ...m, [code]: r })); }
+    catch (e) { alert(e.message); }
+  }
+  // ปุ่ม 👁 — แสดงเฉพาะรายการที่มีค่าจริงและยังไม่ reveal (กดแล้ว server บันทึกประวัติการเข้าถึง)
+  function RevealBtn({ b }) {
+    if (revealed[b.code] || !(b.phoneMasked || b.emailMasked)) return null;
+    return <button type="button" className="btn btn-ghost btn-sm" title="เปิดดูเบอร์/อีเมล (มีการบันทึกประวัติการเข้าถึง)" onClick={(e) => { e.stopPropagation(); revealContact(b.code); }}>👁</button>;
+  }
+  // ลบข้อมูลส่วนบุคคลของ 1 คิวตามคำขอผู้ป่วย (right to erasure) — admin เท่านั้น
+  async function eraseBooking(code) {
+    if (!confirm(`ลบข้อมูลส่วนบุคคลของคิว ${code} ตามคำขอ PDPA?\nชื่อ/เบอร์/อีเมล/หมายเหตุ จะถูกลบถาวร (คงเลขคิวและสถานะไว้เพื่อสถิติ) — ระบบบันทึก audit ทุกครั้ง`)) return;
+    try {
+      await api(`/api/bookings/${code}/erase`, { method: "POST" });
+      setDetail(null);
+      setRevealed((m) => { const n = { ...m }; delete n[code]; return n; });
+      fetchQueuePage(queue.page, queue.size);
+      if (tab === "upcoming") fetchUpcomingPage(upcoming.page, upcoming.size);
+      alert("ลบข้อมูลส่วนบุคคลแล้ว ✓ (ดูรายละเอียดในประวัติการใช้งาน)");
+    } catch (e) { alert(e.message); }
+  }
   // ปฏิทินในโมดัลเจ้าหน้าที่ (คิวชุด/เลื่อนนัด/นัดคำขอรอนัดหมาย) ปิดวันที่บริการนั้นไม่เปิด
   const dayDisabled = useCallback((serviceId) => (d) => !svcDays(getService(services, serviceId)).includes(d.getDay()), [services]);
 
@@ -173,9 +210,10 @@ export default function AdminPage() {
       api("/api/agencies").then(({ agencies: ag }) => setAgencies(ag)).catch(() => {}); // ครั้งแรกจะ seed จาก config + โค้ดที่พบในคิวให้อัตโนมัติ
       setServices(a.services);
       setGlobalSlots(b.slots);
-      api("/api/config").then(({ daysAhead, upcoming, rights, channels }) => {
+      api("/api/config").then(({ daysAhead, upcoming, rights, channels, retentionDays }) => {
         setDaysAheadVal(daysAhead);
         setDaysAheadOrig(daysAhead);
+        if (retentionDays) { setRetentionVal(retentionDays); setRetentionOrig(retentionDays); }
         if (upcoming) { setUpCfg(upcoming); setUpCfgOrig(upcoming); }
         if (Array.isArray(rights) && rights.length) { setRightsCfg(rights); setRightsEdit(rights.map((r) => ({ ...r }))); }
         if (Array.isArray(channels) && channels.length) { setChCfg(channels); setChEdit([...channels]); }
@@ -287,7 +325,7 @@ export default function AdminPage() {
   }, [me, repDays, repCustom, handleLoadError]);
   useEffect(() => { if (tab === "report") loadReports(); }, [tab, loadReports]);
 
-  // ประวัติการใช้งาน (เมนูแยก — admin เท่านั้น) โหลด audit ทั้งก้อน (เก็บสูงสุด 500 รายการ) มากรองฝั่ง client
+  // ประวัติการใช้งาน (เมนูแยก — admin เท่านั้น) โหลด audit ทั้งก้อน (เก็บสูงสุด 5,000 รายการ) มากรองฝั่ง client
   const loadLogs = useCallback(async () => {
     try {
       const { logs: l } = await api("/api/logs");
@@ -469,7 +507,7 @@ export default function AdminPage() {
   function openCbSched(b) {
     const s = svc(b.serviceId);
     const slots = (s.slots && s.slots.length ? s.slots : globalSlots);
-    setCbSched({ code: b.code, info: `${b.name} · ${s.icon} ${s.name} · ${contactOf(b)}`, slots, date: b.date || toISO(new Date()), time: b.time || "", err: "" });
+    setCbSched({ code: b.code, info: `${b.name} · ${s.icon} ${s.name} · ${contactShow(b)}`, slots, date: b.date || toISO(new Date()), time: b.time || "", err: "" });
   }
   async function submitCbSched(e) {
     e.preventDefault();
@@ -570,10 +608,9 @@ export default function AdminPage() {
     } catch (err) { alert(err.message); }
   }
 
-  // ---------- ส่งออก CSV (ผ่าน fetch + blob เพราะต้องแนบ token — โหลดตรง ๆ ด้วย location.href จะโดน 401) ----------
+  // ---------- ส่งออก CSV (admin เท่านั้น — PDPA) ผ่าน fetch + blob แนบ httpOnly cookie อัตโนมัติ ----------
   async function exportCsv() {
     try {
-      const token = localStorage.getItem("q_token");
       const qs = (dateF.mode === "range"
         ? `?from=${encodeURIComponent(dateF.from || "")}&to=${encodeURIComponent(dateF.to || "")}`
         : dateF.mode === "all" ? "?all=1"
@@ -583,7 +620,8 @@ export default function AdminPage() {
         + (agencyFilter !== "all" ? `&agency=${encodeURIComponent(agencyFilter)}` : "")
         + (channelFilter !== "all" ? `&channel=${encodeURIComponent(channelFilter)}` : "")
         + (sourceFilter !== "all" ? `&source=${encodeURIComponent(sourceFilter)}` : "");
-      const res = await fetch("/api/export.csv" + qs, { headers: token ? { Authorization: "Bearer " + token } : {} });
+      const res = await fetch("/api/export.csv" + qs, { credentials: "same-origin" });
+      if (res.status === 403) { alert("ส่งออกไฟล์ได้เฉพาะผู้ดูแลระบบ (admin) — PDPA จำกัดการนำข้อมูลผู้ป่วยออกนอกระบบ"); return; }
       if (!res.ok) { alert("ส่งออกไม่สำเร็จ (HTTP " + res.status + ")"); return; }
       const blob = await res.blob();
       const a = document.createElement("a");
@@ -755,6 +793,21 @@ export default function AdminPage() {
       },
     });
   }
+  function saveRetention() {
+    setRetentionMsg("");
+    const n = Number(retentionVal);
+    if (!(Number.isInteger(n) && n >= 30 && n <= 3650)) { alert("ระยะเวลาเก็บข้อมูลต้องเป็นจำนวนเต็ม 30–3650 วัน"); return; }
+    if (n === Number(retentionOrig)) { setRetentionMsg("ค่าเดิม — ยังไม่มีการเปลี่ยนแปลง"); return; }
+    setConfirmSet({
+      title: "🗑 แก้ไขระยะเวลาเก็บข้อมูลก่อนลบอัตโนมัติ (PDPA)",
+      changes: [{ label: "ระยะเวลาเก็บข้อมูลการจอง (วัน)", from: retentionOrig, to: n }],
+      action: async () => {
+        const { settings } = await api("/api/settings", { method: "PUT", body: JSON.stringify({ retentionDays: n }) });
+        setRetentionOrig(settings.retentionDays);
+        setRetentionMsg("บันทึกแล้ว ✓ เก็บข้อมูล " + settings.retentionDays + " วัน");
+      },
+    });
+  }
   function saveUpCfg() {
     setUpCfgMsg("");
     const n = Number(upCfg.days);
@@ -837,7 +890,7 @@ export default function AdminPage() {
     const s = svc(b.serviceId);
     setCallResult({
       code: b.code, serviceId: b.serviceId,
-      info: `${b.name} · ${s.icon} ${s.name} · นัดปัจจุบัน ${fmtDateShort(b.date)} ${b.time} น. · ${contactOf(b)}`,
+      info: `${b.name} · ${s.icon} ${s.name} · นัดปัจจุบัน ${fmtDateShort(b.date)} ${b.time} น. · ${contactShow(b)}`,
       mode: "", date: b.date, time: b.time, origDate: b.date, origTime: b.time,
       times: [], err: "", busy: false,
     });
@@ -1049,7 +1102,8 @@ export default function AdminPage() {
                 <option value="none">📣 — ไม่ระบุ —</option>
               </select>
               <input type="search" className="date-input search-input" placeholder="🔍 ค้นหา ชื่อ/เบอร์/อีเมล/รหัส (ทุกวัน)" value={qSearch} onChange={(e) => setQSearch(e.target.value)} />
-              {!isAg && <button className="btn btn-ghost btn-sm" type="button" onClick={exportCsv}>⬇ CSV</button>}
+              {/* PDPA: ส่งออก CSV (ข้อมูลผู้ป่วยทั้งชุดออกนอกระบบ) — เฉพาะ admin */}
+              {!isAg && can(me.role, "data.export") && <button className="btn btn-ghost btn-sm" type="button" onClick={exportCsv} title="ส่งออก CSV — เฉพาะผู้ดูแลระบบ">⬇ CSV</button>}
             </div>
           </div>
           )}
@@ -1104,7 +1158,8 @@ export default function AdminPage() {
                                   : "—"}
                               </td>
                               <td className="td-qno"><b>{b.qno}</b></td>
-                              <td className="td-name"><b>👤 {b.name}</b><span>{[b.phone && b.phone !== "-" ? b.phone : null, b.email ? "✉ " + b.email : null, b.code].filter(Boolean).join(" · ")}{b.note ? " · 📝 " + b.note : ""}</span></td>
+                              {/* PDPA: เบอร์/อีเมลแสดงแบบปิดบัง — กด 👁 เพื่อเปิดดูค่าเต็ม (server บันทึก audit ทุกครั้ง) */}
+                              <td className="td-name"><b>👤 {b.name}</b><span>{[phoneShow(b) && phoneShow(b) !== "-" ? phoneShow(b) : null, emailShow(b) ? "✉ " + emailShow(b) : null, b.code].filter(Boolean).join(" · ")}{b.note ? " · 📝 " + b.note : ""} <RevealBtn b={b} /></span></td>
                               <td>{chBadge(b.source, b.agencyCode)}</td>
                               <td>{s.icon} {s.name}<span className="td-sub">{item ? item.name : ""}</span></td>
                               <td>{b.rights}</td>
@@ -1236,7 +1291,7 @@ export default function AdminPage() {
                       return (
                         <div className="upcoming-item" key={b.code}>
                           <span className="when">{fmtDateShort(b.date)} {b.time} น.</span>
-                          <span className="who who-click" title="คลิกเพื่อดูรายละเอียดผู้จอง" onClick={() => setDetail(b)}><b>{b.name}</b><span>{s.icon} {s.name} · คิวที่ {b.qno} · {contactOf(b)} · {chBadge(b.source, b.agencyCode)}</span></span>
+                          <span className="who who-click" title="คลิกเพื่อดูรายละเอียดผู้จอง" onClick={() => setDetail(b)}><b>{b.name}</b><span>{s.icon} {s.name} · คิวที่ {b.qno} · {contactShow(b)} · {chBadge(b.source, b.agencyCode)} <RevealBtn b={b} /></span></span>
                           <button className={"btn-called" + (called ? " done" : "")} disabled={called}
                             onClick={() => openCallResult(b)}>{called ? "✓ โทรแล้ว" : "📞 โทรแล้ว"}</button>
                         </div>
@@ -1284,7 +1339,7 @@ export default function AdminPage() {
                           <tr key={b.code}>
                             <td className="td-time">{new Date(b.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</td>
                             <td className="td-qno"><b>{b.code}</b><span className="td-sub">คำขอที่ {b.qno}</span></td>
-                            <td className="td-name td-name-click" title="คลิกเพื่อดูรายละเอียดผู้ขอ" onClick={() => setDetail(b)}><b>{b.name}</b><span>{b.phone}{b.email ? " · ✉ " + b.email : ""}{b.note ? " · 📝 " + b.note : ""}</span></td>
+                            <td className="td-name td-name-click" title="คลิกเพื่อดูรายละเอียดผู้ขอ" onClick={() => setDetail(b)}><b>{b.name}</b><span>{phoneShow(b)}{emailShow(b) ? " · ✉ " + emailShow(b) : ""}{b.note ? " · 📝 " + b.note : ""} <RevealBtn b={b} /></span></td>
                             <td>{s.icon} {s.name}<span className="td-sub">{item ? item.name : ""}</span></td>
                             <td className="td-time">{b.date
                               ? <><b>{fmtDateShort(b.date)}</b><span className="td-sub">{fmtDayShort(b.date)} · เวลา {b.time} น.</span></>
@@ -1539,7 +1594,7 @@ export default function AdminPage() {
           <section className="admin-pane active">
             <div className="table-card" style={{ padding: 20 }}>
               <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🧾 ประวัติการใช้งาน</h2>
-              <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>ใคร ทำอะไร เมื่อไหร่ (ตามข้อกำหนด PDPA) — เก็บรายการล่าสุดไม่เกิน 500 รายการ</p>
+              <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>ใคร ทำอะไร เมื่อไหร่ (ตามข้อกำหนด PDPA) — เก็บรายการล่าสุดไม่เกิน 5,000 รายการ</p>
               <div className="admin-tools" style={{ marginBottom: 14 }}>
                 <div className="date-mode" role="group" aria-label="ช่วงเวลาของประวัติ">
                   <button type="button" className={"dm-btn" + (logF.range === "all" ? " active" : "")} onClick={() => setLogF((f) => ({ ...f, range: "all" }))}>ทั้งหมด</button>
@@ -1698,6 +1753,19 @@ export default function AdminPage() {
                     <span className="hint" style={{ alignSelf: "center", color: "var(--muted)" }}>วัน</span>
                     <button className="btn btn-primary btn-sm" type="button" onClick={saveDaysAhead}>บันทึก</button>
                     <span className="hint" style={{ alignSelf: "center", color: "var(--muted)" }}>{daysAheadMsg}</span>
+                  </div>
+                </div>
+                <div style={{ height: 16 }} />
+                <div className="table-card" style={{ padding: 20 }}>
+                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🗑 ระยะเวลาเก็บข้อมูล (PDPA)</h2>
+                  <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>
+                    ข้อมูลการจอง (ชื่อ/เบอร์/อีเมล/หมายเหตุ) ที่เก่ากว่ากำหนดจะถูกลบอัตโนมัติพร้อมประวัติการโทร — ตามหลัก "เก็บเท่าที่จำเป็น" ของ PDPA (แนะนำ 365 วัน) ระบบล้างให้เองวันละครั้ง
+                  </p>
+                  <div className="slot-add">
+                    <input type="number" className="time-input" min="30" max="3650" style={{ width: 110 }} value={retentionVal} onChange={(e) => setRetentionVal(e.target.value)} />
+                    <span className="hint" style={{ alignSelf: "center", color: "var(--muted)" }}>วัน</span>
+                    <button className="btn btn-primary btn-sm" type="button" onClick={saveRetention}>บันทึก</button>
+                    <span className="hint" style={{ alignSelf: "center", color: "var(--muted)" }}>{retentionMsg}</span>
                   </div>
                 </div>
                 <div style={{ height: 16 }} />
@@ -2333,6 +2401,7 @@ export default function AdminPage() {
           const s = svc(detail.serviceId);
           const item = (s.items || []).find((i) => i.id === detail.itemId);
           const meta = STATUS_META[detail.status] || { label: detail.status, cls: "" };
+          const rv = revealed[detail.code] || null; // ค่าติดต่อเต็มที่ reveal แล้ว (ถ้ามี)
           return (
             <>
               <h2>👤 รายละเอียดผู้จอง</h2>
@@ -2346,8 +2415,11 @@ export default function AdminPage() {
                 {chBadge(detail.source, detail.agencyCode)}
               </div>
               <dl className="detail-grid">
-                <div><dt>เบอร์โทรศัพท์</dt><dd>{detail.phone && detail.phone !== "-" ? <a href={"tel:" + detail.phone}>{detail.phone}</a> : <span style={{ color: "var(--muted)", fontWeight: 400 }}>ไม่ระบุเบอร์</span>}</dd></div>
-                {detail.email ? <div><dt>อีเมล</dt><dd><a href={"mailto:" + detail.email}>{detail.email}</a></dd></div> : null}
+                {/* PDPA: แสดงค่าปิดบังจนกว่าจะกด 👁 reveal (ลิงก์ tel:/mailto: ใช้ได้เฉพาะค่าเต็มที่เปิดดูแล้ว) */}
+                <div><dt>เบอร์โทรศัพท์</dt><dd>{detail.phone && detail.phone !== "-"
+                  ? (rv && rv.phone ? <a href={"tel:" + rv.phone}>{rv.phone}</a> : <>{phoneShow(detail)} <RevealBtn b={detail} /></>)
+                  : <span style={{ color: "var(--muted)", fontWeight: 400 }}>ไม่ระบุเบอร์</span>}</dd></div>
+                {detail.email ? <div><dt>อีเมล</dt><dd>{rv && rv.email ? <a href={"mailto:" + rv.email}>{rv.email}</a> : <>{emailShow(detail)} <RevealBtn b={detail} /></>}</dd></div> : null}
                 <div><dt>บริการ</dt><dd>{s.icon} {s.name}</dd></div>
                 {item && <div><dt>รายการ</dt><dd>{item.name}</dd></div>}
                 <div><dt>วัน–เวลานัด</dt><dd>{detail.date ? <>{fmtFullTh(detail.date)} เวลา {detail.time} น.</> : "📞 รอนัดหมาย — ยังไม่มีวัน–เวลานัด"}</dd></div>
@@ -2356,8 +2428,14 @@ export default function AdminPage() {
                 {detail.agencyCode ? <div><dt>รหัสตัวแทน</dt><dd>{detail.agencyCode}</dd></div> : null}
                 <div><dt>หมายเหตุ</dt><dd>{detail.note || "—"}</dd></div>
                 <div><dt>สร้างเมื่อ</dt><dd>{detail.createdAt ? new Date(detail.createdAt).toLocaleString("th-TH", { dateStyle: "full", timeStyle: "short" }) + " น." : "—"}</dd></div>
+                {detail.consentAt ? <div><dt>ความยินยอม (PDPA)</dt><dd>{detail.consentVia === "online" ? "✅ ผู้ป่วยยินยอมผ่านเว็บไซต์" : "✅ เจ้าหน้าที่รับความยินยอม"} เมื่อ {new Date(detail.consentAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} น.</dd></div> : null}
+                {detail.erasedAt ? <div><dt>การลบข้อมูล</dt><dd>🗑 ลบข้อมูลส่วนบุคคลเมื่อ {new Date(detail.erasedAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} น. โดย {detail.erasedBy}</dd></div> : null}
               </dl>
               <div className="modal-actions">
+                {/* PDPA (right to erasure): admin ลบข้อมูลส่วนบุคคลของคิวนี้ตามคำขอผู้ป่วย */}
+                {me && can(me.role, "data.erase") && !detail.erasedAt && (
+                  <button className="btn btn-cancel-row" type="button" style={{ marginRight: "auto" }} title="ลบชื่อ/เบอร์/อีเมล/หมายเหตุ ถาวร ตามคำขอของผู้ป่วย" onClick={() => eraseBooking(detail.code)}>🗑 ลบข้อมูล (PDPA)</button>
+                )}
                 <button className="btn btn-primary btn-sm" type="button" onClick={() => setDetail(null)}>ปิดหน้าต่าง</button>
               </div>
             </>

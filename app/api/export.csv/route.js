@@ -8,7 +8,9 @@ export async function GET(request) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
-  if (core.isAgency(user)) return NextResponse.json({ error: "ส่งออกไฟล์ — เฉพาะเจ้าหน้าที่โรงพยาบาล" }, { status: 403 });
+  // PDPA: การ export คือข้อมูลผู้ป่วยทั้งชุด (ชื่อ/เบอร์/อีเมล/สิทธิ์) ออกนอกระบบ — จำกัดเฉพาะ admin
+  // (role อื่นรวมถึง sale/cs ดูข้อมูลบนหน้าจอได้แบบ mask แต่ดาวน์โหลดไฟล์ไม่ได้)
+  if (!core.can(user.role, "data.export")) return NextResponse.json({ error: "ส่งออกไฟล์ — เฉพาะผู้ดูแลระบบ (admin)" }, { status: 403 });
   const sp = new URL(request.url).searchParams;
   const date = sp.get("date");
   const from = sp.get("from");

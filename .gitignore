@@ -1,7 +1,16 @@
 node_modules/
 data/
+# ความลับ/ค่าตั้งจริงของเครื่อง — ห้าม commit (PDPA) ดู .env.example เป็นตัวอย่าง
+.env
+.env.*
+!.env.example
+# ไฟล์ master data / checklist ที่มีข้อมูลส่วนบุคคล — ห้าม commit ขึ้น repo (PDPA)
+MasterData-Checklist-Prod.xlsx
+*.xlsx
+!public/**/*.xlsx
 dist/
 .DS_Store
 *.log
 .next/
 gui-test-screenshots/
+.zcode/

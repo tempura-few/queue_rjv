@@ -29,7 +29,7 @@ export async function GET(request) {
   const offset = pageParam >= 1 ? (pageParam - 1) * pageSize : Math.max(0, Number(sp.get("offset")) || 0);
   let list = core.db.bookings;
   if (sp.get("callback") === "1") list = list.filter((b) => b.source === "callback"); // เฉพาะคำขอรอนัดหมาย (บริการไม่มีเวลานัด)
-  else if (q) list = list.filter((b) => b.name.toLowerCase().includes(q) || b.phone.includes(q.replace(/\s/g, "")) || (b.email || "").toLowerCase().includes(q) || b.code.toLowerCase().includes(q) || (b.agencyCode || "").toLowerCase().includes(q));
+  else if (q) list = list.filter((b) => (b.name || "").toLowerCase().includes(q) || (b.phone || "").includes(q.replace(/\s/g, "")) || (b.email || "").toLowerCase().includes(q) || b.code.toLowerCase().includes(q) || (b.agencyCode || "").toLowerCase().includes(q));
   else if (date) list = list.filter((b) => b.date === date);
   else if (from || to) list = list.filter((b) => (!from || b.date >= from) && (!to || b.date <= to));
   if (agency && agency !== "all") list = list.filter((b) => b.agencyCode === agency); // กรองตามตัวแทน (ใช้ร่วมกับวันที่/ช่วงวันได้)
@@ -50,7 +50,8 @@ export async function GET(request) {
   const start = usePageMode ? (page - 1) * pageSize : offset;
   const rowsOut = list.slice(start, start + pageSize);
   return NextResponse.json({
-    bookings: rowsOut,
+    // PDPA: ปิดบังเบอร์/อีเมลในรายการ (ดูค่าเต็มรายตัวผ่าน /api/bookings/[code]/reveal ซึ่งบันทึก audit)
+    bookings: rowsOut.map(core.publicBooking),
     // โค้ดตัวแทนทั้งหมดที่พบในระบบ (รวมที่พิมพ์เองนอกลิสต์ config) — ใช้ทำตัวเลือก dropdown ตัวกรอง
     agencyCodes: [...new Set(core.db.bookings.filter((b) => b.agencyCode).map((b) => b.agencyCode))].sort(),
     stats: {
@@ -65,7 +66,7 @@ export async function GET(request) {
       from: rowsOut.length ? start + 1 : 0,
       to: start + rowsOut.length,
     },
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request) {
@@ -84,7 +85,7 @@ export async function POST(request) {
     await core.audit(null, "callback_request", `${r.booking.code} ${r.booking.name}`);
     return NextResponse.json({ code: r.booking.code, qno: r.booking.qno, callback: true }, { status: 201 });
   }
-  const r = core.createBooking(null, body);
+  const r = core.createBooking(null, body, { consentVia: "online" }); // PDPA: บันทึกเวลา+ช่องทางยินยอม (ตรวจ consent แล้วด้านบน)
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
   await core.store.addBooking(r.booking);
   await core.audit(null, "booking_online", `${r.booking.code} ${r.booking.name}`);

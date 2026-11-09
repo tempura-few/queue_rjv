@@ -6,6 +6,12 @@ After=network.target mysql.service mariadb.service
 WorkingDirectory=/opt/hospital-queue-app
 ExecStart=/usr/bin/npm start
 Environment=NODE_ENV=production
+# ★ PDPA: คีย์เซ็น JWT — production "บังคับ" ต้องตั้ง (ไม่ตั้ง แอปจะปฏิเสธการ start) ★
+# สร้างค่าสุ่ม: openssl rand -hex 32 — ห้ามใช้ค่าที่เคยอยู่ใน repo เก่า
+Environment=AUTH_SECRET=CHANGE-ME-สร้างด้วย-openssl-rand-hex-32
+# ★ PDPA: คีย์เข้ารหัสข้อมูล at rest — ควรตั้งทั้ง json (ทั้งไฟล์) และ mysql (รายฟิลด์ PII ในตาราง) ★
+# สร้างด้วย openssl rand -hex 32 — ทำหายคือกู้ข้อมูลไม่ได้ (ดู deploy/IT-RUNBOOK.md)
+Environment=DATA_KEY=CHANGE-ME-สร้างด้วย-openssl-rand-hex-32
 # ---- ที่เก็บข้อมูล: MySQL (โหมดหลักของการติดตั้งจริง) ----
 # ★ แก้ MYSQL_PASSWORD เป็นรหัสที่ตั้งในขั้นตอนสร้างฐานข้อมูล (ดู deploy/IT-RUNBOOK.md ข้อ 3) ★
 Environment=STORAGE=mysql

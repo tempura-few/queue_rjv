@@ -31,7 +31,7 @@ export async function POST(request) {
       name: r.name, phone: r.phone || "0900000000", email: r.email || undefined, rights: body.rights,
       agencyCode, source: "agency", note: `รับเป็นชุดจากตัวแทน ${agencyCode}`,
       status: "confirmed",
-    });
+    }, { consentVia: "staff" }); // PDPA: เจ้าหน้าที่/ตัวแทนรับยินยอมจากผู้ป่วยแล้วก่อนบันทึกลงระบบ
     if (!res2.ok) return NextResponse.json({ error: `บันทึกไม่สำเร็จ (รายชื่อ ${r.name}): ${res2.error}` }, { status: res2.status });
     if (!r.phone) res2.booking.phone = "-"; // ตัวแทนไม่ระบุเบอร์ — เก็บเป็นขีดแทนเบอร์ปลอม
     await core.store.addBooking(res2.booking);

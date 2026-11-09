@@ -41,7 +41,8 @@ export async function GET(request) {
   const start = usePageMode ? (page - 1) * pageSize : offset;
   const rowsOut = list.slice(start, start + pageSize);
   return NextResponse.json({
-    bookings: rowsOut,
+    // PDPA: ปิดบังเบอร์/อีเมล — หน้าจอนัดที่จะถึงใช้โทรยืนยันได้ผ่านปุ่ม reveal (audit ทุกครั้ง)
+    bookings: rowsOut.map(core.publicBooking),
     calls: core.db.calls,
     pagination: {
       page, pageSize, total, totalPages,
@@ -49,5 +50,5 @@ export async function GET(request) {
       from: rowsOut.length ? start + 1 : 0,
       to: start + rowsOut.length,
     },
-  });
+  }, { headers: { "Cache-Control": "no-store" } });
 }

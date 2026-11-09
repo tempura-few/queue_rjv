@@ -18,6 +18,16 @@ export async function POST(request) {
   }
   core.clearLoginFails(ip); // ล็อกอินถูก — เคลียร์จำนวนครั้งที่ผิดของ IP นี้
   await core.audit(u, "login_ok", "");
-  // ส่ง JWT กลับไปให้ frontend เก็บแล้วแนบมากับ header Authorization: Bearer … ในทุกคำขอ
-  return NextResponse.json({ token: core.signToken(u), user: { username: u.username, name: u.name, role: u.role } });
+  // PDPA/XSS: JWT อยู่ใน httpOnly cookie เป็นหลัก (JS อ่านไม่ได้ — กันถูกขโมยผ่าน XSS)
+  // ยังคืน token ใน body ด้วยสำหรับ client เก่า/การใช้งานแบบ API (ควรเลิกใช้แล้วเก็บใน localStorage)
+  const token = core.signToken(u);
+  const res = NextResponse.json({ token, user: { username: u.username, name: u.name, role: u.role } });
+  res.cookies.set(core.COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production", // บังคับ HTTPS ใน production (ห้ามส่ง cookie ผ่าน HTTP)
+    maxAge: core.TOKEN_HOURS * 3600,
+  });
+  return res;
 }

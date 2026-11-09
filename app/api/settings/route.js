@@ -33,6 +33,13 @@ export async function PUT(request) {
     core.db.settings.upcomingIncludeNoshow = !!body.upcomingIncludeNoshow;
     parts.push(core.db.settings.upcomingIncludeNoshow ? "รวมไม่มาตามนัด" : "ไม่รวมไม่มาตามนัด");
   }
+  if (body.retentionDays !== undefined) {
+    // PDPA: จำนวนวันที่เก็บข้อมูลการจองก่อนลบอัตโนมัติ (30–3,650 วัน, แนะนำ 365)
+    if (!intIn(Number(body.retentionDays), 30, 3650))
+      return NextResponse.json({ error: "ระยะเวลาเก็บข้อมูลต้องเป็นจำนวนเต็ม 30–3650 วัน" }, { status: 400 });
+    core.db.settings.retentionDays = Number(body.retentionDays);
+    parts.push(`เก็บข้อมูลการจอง ${core.db.settings.retentionDays} วัน (PDPA)`);
+  }
 
   if (body.rights !== undefined) {
     // สิทธิการรักษา: อาร์เรย์ [{th, en}] — th ต้องไม่ว่างและไม่ซ้ำ, en เว้นว่างได้ (สูงสุด 30 รายการ)

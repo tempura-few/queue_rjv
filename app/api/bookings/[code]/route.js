@@ -31,7 +31,7 @@ export async function PATCH(request, { params }) {
     b.date = nd; b.time = nt;
   }
   await core.store.updateBooking(b);
-  return NextResponse.json({ booking: b });
+  return NextResponse.json({ booking: core.publicBooking(b) }, { headers: { "Cache-Control": "no-store" } }); // PDPA: คืนแบบปิดบังเบอร์/อีเมล
 }
 
 export async function DELETE(request, { params }) {

@@ -115,7 +115,7 @@ export default function SuccessPage() {
       `${L.ref}${b.code}`,
       `${L.sumSvc}: ${b.icon} ${pickSvc(lang, b.service, b.serviceEn)}`,
     ];
-    if (b.date) lines.push(`${L.sumDate}: ${fmtFull(b.date, lang)} ${b.time}`, `${L.sumQ} ${b.qno}`);
+    if (b.date) lines.push(`${L.sumDate}: ${fmtFull(b.date, lang)} ${b.time}`);
     else lines.push(L.waitCall);
     lines.push(`${L.sumStatus}: ${statusText}`);
     return lines.join("\n");
@@ -150,7 +150,7 @@ export default function SuccessPage() {
               <div className="code-box">
                 {booking.date ? (
                   <>
-                    <div className="qno-big">{L.qno(booking.qno)}</div>
+                    {/* ไม่แสดงเลขคิว (ลำดับคิว) ให้ผู้ป่วย — ใช้รหัสอ้างอิงยืนยันตัวที่เคาน์เตอร์แทน */}
                     <div className="dt-line">{L.at(fmtFull(booking.date, lang), booking.time)}</div>
                   </>
                 ) : (
