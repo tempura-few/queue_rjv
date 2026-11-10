@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader.js";
+import { StethoscopeIcon, IconSearch, SvcIcon } from "@/components/Icon.js";
 import SiteFooter from "@/components/SiteFooter.js";
 import { api } from "@/lib/client.js";
 import { CONFIG } from "@/lib/config.js";
@@ -12,7 +13,7 @@ import { useLang, pickSvc } from "@/lib/i18n.js";
 const T = {
   th: {
     title: "จองคิวออนไลน์ — " + CONFIG.hospitalName,
-    eyebrow: "🩺 ระบบจองคิวล่วงหน้า",
+    eyebrow: "ระบบจองคิวล่วงหน้า",
     h1a: "จองคิวก่อนถึงโรงพยาบาล",
     h1b: "ไม่ต้องยืนรอ เลือกเวลาเองได้",
     cta: "เลือกบริการที่จองได้",
@@ -30,13 +31,13 @@ const T = {
       ["รับรหัสการจอง + เลขคิว", "ระบบออกรหัสการจองและเลขคิวของวันนั้นทันที บันทึกหรือแคปหน้าจอไว้"],
       ["มาถึงก็เข้าตรวจ", "แสดงรหัสการจองที่เคาน์เตอร์ ลดเวลารอลงทะเบียนและคิวรอ"],
     ],
-    lookupLabel: "🔎 ตรวจสอบการจอง",
+    lookupLabel: "ตรวจสอบการจอง",
     lookupPh: "รหัสการจอง เช่น RV-261015-257",
     lookupBtn: "ดูรายละเอียด",
   },
   en: {
     title: "Online Booking — " + CONFIG.en.hospitalName,
-    eyebrow: "🩺 Online Appointment System",
+    eyebrow: "Online Appointment System",
     h1a: "Book your visit before you arrive",
     h1b: "Skip the queue — pick your own time",
     cta: "Browse bookable services",
@@ -54,13 +55,13 @@ const T = {
       ["Get your booking code + queue number", "The system issues a booking code and your queue number instantly — save or screenshot it"],
       ["Arrive and get checked in", "Show your booking code at the counter to skip most of the registration wait"],
     ],
-    lookupLabel: "🔎 Check my booking",
+    lookupLabel: "Check my booking",
     lookupPh: "Booking code e.g. RV-261015-257",
     lookupBtn: "View",
   },
   my: {
     title: "အွန်လိုင်း ကြိုတင်စာရင်းသွင်းခြင်း — " + CONFIG.my.hospitalName,
-    eyebrow: "🩺 အွန်လိုင်း ကြိုတင်စာရင်းသွင်းသည့် စနစ်",
+    eyebrow: "အွန်လိုင်း ကြိုတင်စာရင်းသွင်းသည့် စနစ်",
     h1a: "ဆေးရုံမရောက်မီ ကြိုတင်စာရင်းသွင်းပါ",
     h1b: "စောင့်စရာမလို — သင့်အချိန်ကိုယ်တိုင် ရွေးနိုင်သည်",
     cta: "စာရင်းသွင်းနိုင်သော ဝန်ဆောင်မှုများ ကြည့်ရန်",
@@ -78,7 +79,7 @@ const T = {
       ["စာရင်းသွင်းမှုကုဒ် + အမှတ်စဉ် ရပါမည်", "စနစ်က စာရင်းသွင်းမှုကုဒ်နှင့် ထိုရက်၏ အမှတ်စဉ်ကို ချက်ချင်း ထုတ်ပေးသည် — သိမ်းဆည်းပါ သို့မဟုတ် စကရင်ရှော့ ရိုက်ထားပါ"],
       ["ရောက်ရှိလျှင် ချက်ချင်း စစ်ဆေးနိုင်သည်", "ကောင်တာတွင် စာရင်းသွင်းမှုကုဒ် ပြပါ — မှတ်ပုံတင်စောင့်ဆိုင်းချိန်နှင့် အမှတ်စဉ်စောင့်ချိန် လျှော့နည်းသွားမည်"],
     ],
-    lookupLabel: "🔎 ကျွန်ုပ်၏ စာရင်းသွင်းမှုကို စစ်ကြည့်ရန်",
+    lookupLabel: "ကျွန်ုပ်၏ စာရင်းသွင်းမှုကို စစ်ကြည့်ရန်",
     lookupPh: "စာရင်းသွင်းမှုကုဒ် ဥပမာ RV-261015-257",
     lookupBtn: "ကြည့်ရန်",
   },
@@ -111,16 +112,15 @@ export default function HomePage() {
       <SiteHeader activePage="home" />
       <section className="hero">
         <div className="container">
-          <span className="hero-eyebrow">{L.eyebrow}</span>
+          <span className="hero-eyebrow"><StethoscopeIcon /> {L.eyebrow}</span>
           <h1>{L.h1a}<br />{L.h1b}</h1>
           <p>{C.tagline}</p>
           <div className="hero-actions">
             <a className="btn btn-primary" href="#services">{L.cta}</a>
-            <Link className="btn btn-ghost" href="/login">{L.staff}</Link>
           </div>
           {/* กลับมาดูการจองอีกครั้งด้วยรหัส — เผื่อผู้จองปิด/รีเฟรชหน้าสำเร็จไปแล้ว */}
           <form className="lookup-box" onSubmit={checkBooking}>
-            <span className="lookup-label">{L.lookupLabel}</span>
+            <span className="lookup-label"><IconSearch /> {L.lookupLabel}</span>
             <input className="lookup-input" value={lookup} onChange={(e) => setLookup(e.target.value)}
               placeholder={L.lookupPh} />
             <button className="btn btn-primary btn-sm" type="submit">{L.lookupBtn}</button>
@@ -137,7 +137,7 @@ export default function HomePage() {
           {services && services.length === 0 && <p className="hint">{L.empty}</p>}
           {services && services.map((s) => (
             <Link className="service-card" key={s.id} href={`/booking?service=${s.id}`}>
-              <span className="service-icon">{s.icon}</span>
+              <span className="service-icon"><SvcIcon icon={s.icon} /></span>
               <h3>{pickSvc(lang, s.name, s.nameEn)}</h3>
               <p>{pickSvc(lang, s.desc, s.descEn)}</p>
               <span className="service-cta">{L.book}</span>

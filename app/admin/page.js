@@ -18,14 +18,20 @@ const ACT = {
   retention_purge: "ล้างข้อมูลเก่าอัตโนมัติ", agencies_update: "แก้ไข master data ตัวแทน", agencies_seed: "สร้าง master data ตัวแทน",
 };
 const roleLabel = (r) => (ROLES[r] ? ROLES[r].label : r);
-const SVC_ICONS = ["🩺", "🦷", "✨", "💉", "🌿", "🧠", "👁️", "🦴", "💆", "👶", "🫀", "🔬"];
+import {
+  SvcIcon, SVC_ICONS, StethoscopeIcon, IconQueue, IconCalendar, IconPhone, IconPhoneAlt, IconAgency,
+  IconReport, IconHistory, IconSettings, IconUsers, IconBox, IconImport, IconPlus, IconLogout,
+  IconUser, IconCsv, IconGlobe, IconWalkin, IconFolder, IconCheck, IconSearch, IconRefresh,
+  IconKey, IconClock, IconTrash, IconCard, IconMegaphone, IconTrend, IconFire, IconWarn,
+  IconInfo, IconPencil, IconExcel, IconNote, IconEye,
+} from "@/components/Icon.js";
 const DAY_LABELS_FULL = { 1: "จันทร์", 2: "อังคาร", 3: "พุธ", 4: "พฤหัสบดี", 5: "ศุกร์", 6: "เสาร์", 0: "อาทิตย์" };
 const getService = (list, id) => list.find((s) => s.id === id);
 const slotsFor = (list, id) => { const s = getService(list, id); return s && Array.isArray(s.slots) && s.slots.length ? s.slots : null; };
 const nowHHMM = () => String(new Date().getHours()).padStart(2, "0") + String(new Date().getMinutes()).padStart(2, "0");
 const chBadge = (source, agencyCode) => {
   const ch = CONFIG.channels[source] || CONFIG.channels.online;
-  return <span className={"ch-badge " + ch.cls}>{ch.icon} {ch.label}{agencyCode ? " · " + agencyCode : ""}</span>;
+  return <span className={"ch-badge " + ch.cls}><SvcIcon icon={ch.icon} /> {ch.label}{agencyCode ? " · " + agencyCode : ""}</span>;
 };
 // ช่องทางติดต่อของคิว — เบอร์ว่าง/เป็นขีด (ไม่ทราบเบอร์) ใช้อีเมลแสดงแทน
 const contactOf = (b) => (b.phone && b.phone !== "-" ? b.phone : b.email ? "✉ " + b.email : "ไม่มีช่องทางติดต่อ");
@@ -169,7 +175,7 @@ export default function AdminPage() {
   // ปุ่ม 👁 — แสดงเฉพาะรายการที่มีค่าจริงและยังไม่ reveal (กดแล้ว server บันทึกประวัติการเข้าถึง)
   function RevealBtn({ b }) {
     if (revealed[b.code] || !(b.phoneMasked || b.emailMasked)) return null;
-    return <button type="button" className="btn btn-ghost btn-sm" title="เปิดดูเบอร์/อีเมล (มีการบันทึกประวัติการเข้าถึง)" onClick={(e) => { e.stopPropagation(); revealContact(b.code); }}>👁</button>;
+    return <button type="button" className="btn btn-ghost btn-sm" title="เปิดดูเบอร์/อีเมล (มีการบันทึกประวัติการเข้าถึง)" onClick={(e) => { e.stopPropagation(); revealContact(b.code); }}><IconEye /></button>;
   }
   // ลบข้อมูลส่วนบุคคลของ 1 คิวตามคำขอผู้ป่วย (right to erasure) — admin เท่านั้น
   async function eraseBooking(code) {
@@ -417,7 +423,7 @@ export default function AdminPage() {
       const { bookings } = await api("/api/bookings?q=" + code);
       const b = bookings.find((x) => x.code === code);
       if (!b) return;
-      setResched({ code, serviceId: b.serviceId, info: `${b.name} · ${svc(b.serviceId).name} · ปัจจุบัน ${b.date ? fmtFullTh(b.date) + " " + b.time + " น." : "📞 รอนัดหมาย (ยังไม่มีวัน–เวลา)"}`, date: b.date, time: b.time, times: [], err: "" });
+      setResched({ code, serviceId: b.serviceId, info: `${b.name} · ${svc(b.serviceId).name} · ปัจจุบัน ${b.date ? fmtFullTh(b.date) + " " + b.time + " น." : "รอนัดหมาย (ยังไม่มีวัน–เวลา)"}`, date: b.date, time: b.time, times: [], err: "" });
       const { slots } = await api(`/api/availability?service=${b.serviceId}&date=${b.date}`);
       setResched((r) => r && { ...r, times: slots });
     } catch (e) { alert(e.message); }
@@ -507,7 +513,7 @@ export default function AdminPage() {
   function openCbSched(b) {
     const s = svc(b.serviceId);
     const slots = (s.slots && s.slots.length ? s.slots : globalSlots);
-    setCbSched({ code: b.code, info: `${b.name} · ${s.icon} ${s.name} · ${contactShow(b)}`, slots, date: b.date || toISO(new Date()), time: b.time || "", err: "" });
+    setCbSched({ code: b.code, info: `${b.name} · ${s.name} · ${contactShow(b)}`, slots, date: b.date || toISO(new Date()), time: b.time || "", err: "" });
   }
   async function submitCbSched(e) {
     e.preventDefault();
@@ -784,7 +790,7 @@ export default function AdminPage() {
     if (!(Number.isInteger(n) && n >= 1 && n <= 90)) { alert("ระยะเวลาเปิดจองล่วงหน้าต้องเป็นจำนวนเต็ม 1–90 วัน"); return; }
     if (n === Number(daysAheadOrig)) { setDaysAheadMsg("ค่าเดิม — ยังไม่มีการเปลี่ยนแปลง"); return; }
     setConfirmSet({
-      title: "📅 แก้ไขระยะเวลาเปิดจองล่วงหน้า",
+      title: <><IconCalendar /> แก้ไขระยะเวลาเปิดจองล่วงหน้า</>,
       changes: [{ label: "เปิดจองล่วงหน้า (วัน)", from: daysAheadOrig, to: n }],
       action: async () => {
         const { settings } = await api("/api/settings", { method: "PUT", body: JSON.stringify({ daysAhead: n }) });
@@ -799,7 +805,7 @@ export default function AdminPage() {
     if (!(Number.isInteger(n) && n >= 30 && n <= 3650)) { alert("ระยะเวลาเก็บข้อมูลต้องเป็นจำนวนเต็ม 30–3650 วัน"); return; }
     if (n === Number(retentionOrig)) { setRetentionMsg("ค่าเดิม — ยังไม่มีการเปลี่ยนแปลง"); return; }
     setConfirmSet({
-      title: "🗑 แก้ไขระยะเวลาเก็บข้อมูลก่อนลบอัตโนมัติ (PDPA)",
+      title: <><IconTrash /> แก้ไขระยะเวลาเก็บข้อมูลก่อนลบอัตโนมัติ (PDPA)</>,
       changes: [{ label: "ระยะเวลาเก็บข้อมูลการจอง (วัน)", from: retentionOrig, to: n }],
       action: async () => {
         const { settings } = await api("/api/settings", { method: "PUT", body: JSON.stringify({ retentionDays: n }) });
@@ -819,7 +825,7 @@ export default function AdminPage() {
     if (!!next.includeNoshow !== !!upCfgOrig.includeNoshow) changes.push({ label: "รวมสถานะไม่มาตามนัด", from: thBool(upCfgOrig.includeNoshow), to: thBool(next.includeNoshow) });
     if (!changes.length) { setUpCfgMsg("ค่าเดิม — ยังไม่มีการเปลี่ยนแปลง"); return; }
     setConfirmSet({
-      title: '📞 แก้ไขเงื่อนไขแท็บ "นัดที่กำลังจะถึง"',
+      title: <><IconPhone /> แก้ไขเงื่อนไขแท็บ "นัดที่กำลังจะถึง"</>,
       changes,
       action: async () => {
         await api("/api/settings", { method: "PUT", body: JSON.stringify({ upcomingDays: next.days, upcomingIncludeToday: next.includeToday, upcomingIncludeNoshow: next.includeNoshow }) });
@@ -839,7 +845,7 @@ export default function AdminPage() {
     const now = rows.map((r) => r.th).join(", ");
     if (old === now) { setRightsMsg("ค่าเดิม — ยังไม่มีการเปลี่ยนแปลง"); return; }
     setConfirmSet({
-      title: "💳 แก้ไขสิทธิการรักษา (Payment / coverage)",
+      title: <><IconCard /> แก้ไขสิทธิการรักษา (Payment / coverage)</>,
       changes: [{ label: "รายการสิทธิ์", from: old || "—", to: now }],
       note: "คิวเดิมที่บันทึกสิทธิ์เก่าไว้จะแสดงชื่อเดิมตามที่บันทึก — รายการที่ถูกลบจะไม่ให้เลือกใหม่อีก",
       action: async () => {
@@ -857,7 +863,7 @@ export default function AdminPage() {
     if (new Set(rows).size !== rows.length) { alert("ชื่อช่องทางซ้ำกัน กรุณาตรวจอีกครั้ง"); return; }
     if (rows.join(", ") === chCfg.join(", ")) { setChMsg("ค่าเดิม — ยังไม่มีการเปลี่ยนแปลง"); return; }
     setConfirmSet({
-      title: "📣 แก้ไขช่องทางผู้ป่วย (master data)",
+      title: <><IconMegaphone /> แก้ไขช่องทางผู้ป่วย (master data)</>,
       changes: [{ label: "รายการช่องทาง", from: chCfg.join(", ") || "—", to: rows.join(", ") || "—" }],
       note: "คิวเดิมที่บันทึกช่องทางเก่าไว้จะแสดงชื่อเดิมตามที่บันทึก — รายการที่ถูกลบจะไม่ให้เลือกใหม่",
       action: async () => {
@@ -890,7 +896,7 @@ export default function AdminPage() {
     const s = svc(b.serviceId);
     setCallResult({
       code: b.code, serviceId: b.serviceId,
-      info: `${b.name} · ${s.icon} ${s.name} · นัดปัจจุบัน ${fmtDateShort(b.date)} ${b.time} น. · ${contactShow(b)}`,
+      info: `${b.name} · ${s.name} · นัดปัจจุบัน ${fmtDateShort(b.date)} ${b.time} น. · ${contactShow(b)}`,
       mode: "", date: b.date, time: b.time, origDate: b.date, origTime: b.time,
       times: [], err: "", busy: false,
     });
@@ -1004,15 +1010,15 @@ export default function AdminPage() {
           </div>
           <nav className="side-nav">
             {[
-              ["queue", "📋", "ตารางคิวรายวัน", "คิวรายวัน + ค้นหา"],
-              ["calendar", "🗓️", "ปฏิทินว่าง", "ที่นั่งคงเหลือรายเดือน"],
-              ["upcoming", "📞", "นัดที่กำลังจะถึง", (upCfg.includeToday ? "วันนี้" : "พรุ่งนี้") + " – " + upCfg.days + " วัน"],
-              ["callbacks", "☎️", "รอนัดหมาย", "ไม่มีเวลานัด · คำขอจากผู้ป่วย"],
-              ["agencies", "🤝", "ตัวแทน", "Master data · รหัส/ชื่อ"],
-              ["report", "📊", "รายงาน", "ภาพรวม · แนวโน้ม · ตัวแทน", "report.view"],
-              ["history", "🧾", "ประวัติการใช้งาน", "ใคร ทำอะไร เมื่อไหร่", "logs.view"],
-              ["services", "⚙️", "จัดการบริการ", "บริการ · เวลา · ระยะจอง", "services.manage"],
-              ["users", "👥", "จัดการผู้ใช้", "บัญชี · สิทธิ์ 3 ระดับ", "users.manage"],
+              ["queue", <IconQueue />, "ตารางคิวรายวัน", "คิวรายวัน + ค้นหา"],
+              ["calendar", <IconCalendar />, "ปฏิทินว่าง", "ที่นั่งคงเหลือรายเดือน"],
+              ["upcoming", <IconPhone />, "นัดที่กำลังจะถึง", (upCfg.includeToday ? "วันนี้" : "พรุ่งนี้") + " – " + upCfg.days + " วัน"],
+              ["callbacks", <IconPhoneAlt />, "รอนัดหมาย", "ไม่มีเวลานัด · คำขอจากผู้ป่วย"],
+              ["agencies", <IconAgency />, "ตัวแทน", "Master data · รหัส/ชื่อ"],
+              ["report", <IconReport />, "รายงาน", "ภาพรวม · แนวโน้ม · ตัวแทน", "report.view"],
+              ["history", <IconHistory />, "ประวัติการใช้งาน", "ใคร ทำอะไร เมื่อไหร่", "logs.view"],
+              ["services", <IconSettings />, "จัดการบริการ", "บริการ · เวลา · ระยะจอง", "services.manage"],
+              ["users", <IconUsers />, "จัดการผู้ใช้", "บัญชี · สิทธิ์ 3 ระดับ", "users.manage"],
             ].filter(([, , , , perm]) => !perm || can(me.role, perm))
              .filter(([k]) => !isAg || k === "queue") // บัญชีตัวแทน: เห็นเฉพาะตารางคิวของตัวเอง
             .map(([k, ico, label, sub]) => (
@@ -1027,23 +1033,23 @@ export default function AdminPage() {
           <div className="side-actions">
             {isAg ? (
               <>
-                <button type="button" className="side-btn" onClick={openBatch}>📦 รับคิวเป็นชุด</button>
-                <button type="button" className="side-btn" onClick={() => { setImp({ agency: "", rows: [] }); }}>📥 นำเข้า Excel</button>
+                <button type="button" className="side-btn" onClick={openBatch}><IconBox /> รับคิวเป็นชุด</button>
+                <button type="button" className="side-btn" onClick={() => { setImp({ agency: "", rows: [] }); }}><IconImport /> นำเข้า Excel</button>
               </>
             ) : (
               <>
-                <button type="button" className="side-btn" onClick={() => openWalkin()}>➕ รับคิว walk-in</button>
-                {can(me.role, "agency.manage") && <button type="button" className="side-btn" onClick={openBatch}>📦 รับคิวเป็นชุด (ตัวแทน)</button>}
-                {can(me.role, "agency.manage") && <button type="button" className="side-btn" onClick={() => { setImp({ agency: "", rows: [] }); }}>📥 นำเข้า Excel (ตัวแทน)</button>}
+                <button type="button" className="side-btn" onClick={() => openWalkin()}><IconPlus /> รับคิว walk-in</button>
+                {can(me.role, "agency.manage") && <button type="button" className="side-btn" onClick={openBatch}><IconBox /> รับคิวเป็นชุด (ตัวแทน)</button>}
+                {can(me.role, "agency.manage") && <button type="button" className="side-btn" onClick={() => { setImp({ agency: "", rows: [] }); }}><IconImport /> นำเข้า Excel (ตัวแทน)</button>}
               </>
             )}
           </div>
           <div className="side-user">
             <div className="side-who">
-              <b>👤 {me.name}</b>
+              <b><IconUser /> {me.name}</b>
               <span className="si-sub">{roleLabel(me.role)}</span>
             </div>
-            <button type="button" className="side-logout" onClick={logout}>⇦ ออกจากระบบ</button>
+            <button type="button" className="side-logout" onClick={logout}><IconLogout /> ออกจากระบบ</button>
           </div>
         </aside>
 
@@ -1073,7 +1079,7 @@ export default function AdminPage() {
               )}
               <select className="date-input" value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)}>
                 <option value="all">ทุกบริการ</option>
-                {services.map((s) => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               <select className="date-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="all">ทุกสถานะ</option>
@@ -1084,7 +1090,7 @@ export default function AdminPage() {
               </select>
               <select className="date-input" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} title="กรองตามแหล่งจอง (Website/Online/ตัวแทน/รอนัดหมาย) — ใช้ร่วมกับตัวกรองอื่นได้ และออกกับไฟล์ CSV">
                 <option value="all">ทุกแหล่งจอง</option>
-                {Object.entries(CONFIG.channels).map(([k, c]) => <option key={k} value={k}>{c.icon} {c.label}</option>)}
+                {Object.entries(CONFIG.channels).map(([k, c]) => <option key={k} value={k}>{c.label}</option>)}
               </select>
               {!isAg && (
               <select className="date-input" value={agencyFilter} onChange={(e) => setAgencyFilter(e.target.value)} title="กรองตามตัวแทน — ใช้ร่วมกับตัวกรองอื่นได้ และออกกับไฟล์ CSV">
@@ -1093,17 +1099,17 @@ export default function AdminPage() {
                 {[...agencies.map((a) => ({ code: a.code, name: a.name, closed: a.active === false })),
                   ...agencyCodesLive.filter((c) => !agencies.some((a) => a.code === c)).map((c) => ({ code: c, name: null, closed: false }))]
                   .sort((x, y) => x.code.localeCompare(y.code))
-                  .map((a) => <option key={a.code} value={a.code}>🤝 {a.code}{a.name ? " — " + a.name : " (ยังไม่ลงทะเบียน)"}{a.closed ? " (ปิด)" : ""}</option>)}
+                  .map((a) => <option key={a.code} value={a.code}>{a.code}{a.name ? " — " + a.name : " (ยังไม่ลงทะเบียน)"}{a.closed ? " (ปิด)" : ""}</option>)}
               </select>
               )}
               <select className="date-input" value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} title="กรองตามช่องทางที่ผู้ป่วยรู้จัก/มาจาก — ใช้ร่วมกับตัวกรองอื่นได้ และออกกับไฟล์ CSV">
                 <option value="all">ทุกช่องทาง</option>
-                {chCfg.map((c) => <option key={c} value={c}>📣 {c}</option>)}
-                <option value="none">📣 — ไม่ระบุ —</option>
+                {chCfg.map((c) => <option key={c} value={c}>{c}</option>)}
+                <option value="none">— ไม่ระบุ —</option>
               </select>
-              <input type="search" className="date-input search-input" placeholder="🔍 ค้นหา ชื่อ/เบอร์/อีเมล/รหัส (ทุกวัน)" value={qSearch} onChange={(e) => setQSearch(e.target.value)} />
+              <input type="search" className="date-input search-input" placeholder="ค้นหา ชื่อ/เบอร์/อีเมล/รหัส (ทุกวัน)" value={qSearch} onChange={(e) => setQSearch(e.target.value)} />
               {/* PDPA: ส่งออก CSV (ข้อมูลผู้ป่วยทั้งชุดออกนอกระบบ) — เฉพาะ admin */}
-              {!isAg && can(me.role, "data.export") && <button className="btn btn-ghost btn-sm" type="button" onClick={exportCsv} title="ส่งออก CSV — เฉพาะผู้ดูแลระบบ">⬇ CSV</button>}
+              {!isAg && can(me.role, "data.export") && <button className="btn btn-ghost btn-sm" type="button" onClick={exportCsv} title="ส่งออก CSV — เฉพาะผู้ดูแลระบบ"><IconCsv /> CSV</button>}
             </div>
           </div>
           )}
@@ -1114,19 +1120,19 @@ export default function AdminPage() {
             <div className="stat-grid">
               {queue.stats && [
                 [queue.stats.total, q ? "ผลการค้นหา" : dateF.mode === "range" ? "คิวช่วงที่เลือก" : "คิววันที่เลือก", ""],
-                [queue.stats.online, "🌐 Website", "c-online"],
-                [queue.stats.walkin, "🚶 Online", "c-walkin"],
-                [queue.stats.agency, "🤝 ตัวแทน", "c-agency"],
+                [queue.stats.online, <><IconGlobe /> Website</>, "c-online"],
+                [queue.stats.walkin, <><IconWalkin /> Online</>, "c-walkin"],
+                [queue.stats.agency, <><IconAgency /> ตัวแทน</>, "c-agency"],
                 [queue.stats.pending, "รอยืนยัน", "c-pending"],
                 [queue.stats.confirmed, "ยืนยันแล้ว", "c-confirmed"],
               ].map(([num, lbl, cls]) => (
-                <div className={"stat-card " + cls} key={lbl}><div className="num">{num}</div><div className="lbl">{lbl}</div></div>
+                <div className={"stat-card " + cls} key={cls}><div className="num">{num}</div><div className="lbl">{lbl}</div></div>
               ))}
             </div>
             <div className="table-card">
               <div className="table-scroll">
                 {!queue.total ? (
-                  <div className="empty-state"><div style={{ fontSize: 40, marginBottom: 8 }}>🗂️</div>{q ? <>ไม่พบคิวที่ตรงกับ &quot;{q}&quot;</> : dateF.mode === "all" ? <>ไม่มีคิว <b>ทุกวัน</b> เลย</> : dateF.mode === "range" ? <>ไม่มีคิวช่วง <b>{dateF.from ? fmtDateShort(dateF.from) : "เริ่ม"} – {dateF.to ? fmtDateShort(dateF.to) : "ปัจจุบัน"}</b></> : <>ไม่มีคิววันที่ <b>{dateF.date ? fmtFullTh(dateF.date) : "ทุกวัน (ยังไม่ได้เลือกวันที่)"}</b></>}</div>
+                  <div className="empty-state"><div style={{ marginBottom: 8 }}><IconFolder size={40} /></div>{q ? <>ไม่พบคิวที่ตรงกับ &quot;{q}&quot;</> : dateF.mode === "all" ? <>ไม่มีคิว <b>ทุกวัน</b> เลย</> : dateF.mode === "range" ? <>ไม่มีคิวช่วง <b>{dateF.from ? fmtDateShort(dateF.from) : "เริ่ม"} – {dateF.to ? fmtDateShort(dateF.to) : "ปัจจุบัน"}</b></> : <>ไม่มีคิววันที่ <b>{dateF.date ? fmtFullTh(dateF.date) : "ทุกวัน (ยังไม่ได้เลือกวันที่)"}</b></>}</div>
                 ) : (
                   <>
                     <table className="booking-table">
@@ -1147,7 +1153,7 @@ export default function AdminPage() {
                                 <td className="td-time">
                                   {b.date
                                     ? <>{fmtDateShort(b.date)}<span className="td-sub">{fmtDayShort(b.date)}</span></>
-                                    : <span className="td-sub">📞 รอนัดหมาย (ยังไม่มีวัน–เวลา)</span>}
+                                    : <span className="td-sub"><IconPhone /> รอนัดหมาย (ยังไม่มีวัน–เวลา)</span>}
                                 </td>
                               )}
                               <td className="td-time">{b.time || "—"}</td>
@@ -1159,9 +1165,9 @@ export default function AdminPage() {
                               </td>
                               <td className="td-qno"><b>{b.qno}</b></td>
                               {/* PDPA: เบอร์/อีเมลแสดงแบบปิดบัง — กด 👁 เพื่อเปิดดูค่าเต็ม (server บันทึก audit ทุกครั้ง) */}
-                              <td className="td-name"><b>👤 {b.name}</b><span>{[phoneShow(b) && phoneShow(b) !== "-" ? phoneShow(b) : null, emailShow(b) ? "✉ " + emailShow(b) : null, b.code].filter(Boolean).join(" · ")}{b.note ? " · 📝 " + b.note : ""} <RevealBtn b={b} /></span></td>
+                              <td className="td-name"><b><IconUser /> {b.name}</b><span>{[phoneShow(b) && phoneShow(b) !== "-" ? phoneShow(b) : null, emailShow(b) ? "✉ " + emailShow(b) : null, b.code].filter(Boolean).join(" · ")}{b.note ? <> · <IconNote /> {b.note}</> : ""} <RevealBtn b={b} /></span></td>
                               <td>{chBadge(b.source, b.agencyCode)}</td>
-                              <td>{s.icon} {s.name}<span className="td-sub">{item ? item.name : ""}</span></td>
+                              <td><SvcIcon icon={s.icon} /> {s.name}<span className="td-sub">{item ? item.name : ""}</span></td>
                               <td>{b.rights}</td>
                               <td><span className={"badge " + meta.cls}>{meta.label}</span></td>
                               {!isAg && (
@@ -1188,7 +1194,7 @@ export default function AdminPage() {
         {tab === "calendar" && (
           <section className="admin-pane active">
             <div className="table-card" style={{ padding: 20 }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🗓️ ปฏิทินว่าง</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconCalendar /> ปฏิทินว่าง</h2>
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>
                 ตัวเลขคือ <b>ที่นั่งว่างรวมทั้งวัน</b> และ <b>เวลาหลัง ·</b> คือช่วงเร็วสุดที่ยังจองได้ · เหลือง = ใกล้เต็ม (เหลือ ≤ ¼ ของความจุ) · เทา = วันที่บริการไม่เปิด · คลิกที่วันเพื่อดูรายช่วงเวลา
               </p>
@@ -1200,11 +1206,11 @@ export default function AdminPage() {
                 <span style={{ flex: 1 }} />
                 <select className="form-select" style={{ width: "auto" }} value={calSvc} onChange={(e) => setCalSvc(e.target.value)}>
                   <option value="all">ทุกบริการ</option>
-                  {(calData ? calData.services : []).map((s) => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                  {(calData ? calData.services : []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
               {!calData ? (
-                <div className="empty-state"><div style={{ fontSize: 40, marginBottom: 8 }}>🗓️</div>กำลังโหลดปฏิทิน…</div>
+                <div className="empty-state"><div style={{ marginBottom: 8 }}><IconCalendar size={40} /></div>กำลังโหลดปฏิทิน…</div>
               ) : (
                 (() => {
                   const todayStr = toISO(new Date());
@@ -1237,7 +1243,7 @@ export default function AdminPage() {
                                     : v.next
                                       ? `${s.name}: ว่าง ${v.left}/${v.total} ที่ · ช่วงเร็วสุด ${v.next} น.`
                                       : `${s.name}: เหลือ ${v.left}/${v.total} ที่ แต่ช่วงเวลาของวันนี้ผ่านมาหมดแล้ว`;
-                                return <span key={s.id} className={"cal-chip " + cls} title={tip}>{s.icon} {label}</span>;
+                                return <span key={s.id} className={"cal-chip " + cls} title={tip}><SvcIcon icon={s.icon} /> {label}</span>;
                               })}
                             </span>
                           </div>
@@ -1254,7 +1260,7 @@ export default function AdminPage() {
         {tab === "upcoming" && (
           <section className="admin-pane active">
             <div className="table-card" style={{ padding: 20 }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>📞 นัดที่กำลังจะถึง</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconPhone /> นัดที่กำลังจะถึง</h2>
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>ช่วงเริ่มต้นตามเงื่อนไขที่ตั้งไว้: {upCfg.includeToday ? "วันนี้" : "พรุ่งนี้"} – {upCfg.days} วันข้างหน้า · กด &quot;โทรแล้ว&quot; เมื่อติดต่อยืนยันเรียบร้อย</p>
               {/* ตัวกรองหน้านี้เป็น "เวลาที่ใกล้จะถึง" แบบสัมพัทธ์ — ต่างจากตัวกรองวันที่แบบเลือกเองของตารางคิวรายวัน */}
               <div className="admin-tools" style={{ marginBottom: 14 }}>
@@ -1266,7 +1272,7 @@ export default function AdminPage() {
                 </div>
                 <select className="date-input" value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)}>
                   <option value="all">ทุกบริการ</option>
-                  {services.map((s) => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                  {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
                 <select className="date-input" value={upCall} onChange={(e) => setUpCall(e.target.value)} title="กรองตามสถานะการโทรยืนยัน">
                   <option value="all">ทุกสถานะโทร</option>
@@ -1281,7 +1287,7 @@ export default function AdminPage() {
                   {serviceFilter !== "all" && <> ของบริการ <b>{svc(serviceFilter).icon} {svc(serviceFilter).name}</b></>}
                 </div>
               ) : !upVisible.length ? (
-                <div className="empty-state"><div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>รายการในหน้านี้โทรครบแล้ว — ดูหน้าถัดไป หรือเปลี่ยนตัวกรองช่วงเวลา/สถานะโทร</div>
+                <div className="empty-state"><div style={{ marginBottom: 8 }}><IconCheck size={40} /></div>รายการในหน้านี้โทรครบแล้ว — ดูหน้าถัดไป หรือเปลี่ยนตัวกรองช่วงเวลา/สถานะโทร</div>
               ) : (
                 <>
                   <div className="upcoming-list">
@@ -1291,9 +1297,9 @@ export default function AdminPage() {
                       return (
                         <div className="upcoming-item" key={b.code}>
                           <span className="when">{fmtDateShort(b.date)} {b.time} น.</span>
-                          <span className="who who-click" title="คลิกเพื่อดูรายละเอียดผู้จอง" onClick={() => setDetail(b)}><b>{b.name}</b><span>{s.icon} {s.name} · คิวที่ {b.qno} · {contactShow(b)} · {chBadge(b.source, b.agencyCode)} <RevealBtn b={b} /></span></span>
+                          <span className="who who-click" title="คลิกเพื่อดูรายละเอียดผู้จอง" onClick={() => setDetail(b)}><b>{b.name}</b><span><SvcIcon icon={s.icon} /> {s.name} · คิวที่ {b.qno} · {contactShow(b)} · {chBadge(b.source, b.agencyCode)} <RevealBtn b={b} /></span></span>
                           <button className={"btn-called" + (called ? " done" : "")} disabled={called}
-                            onClick={() => openCallResult(b)}>{called ? "✓ โทรแล้ว" : "📞 โทรแล้ว"}</button>
+                            onClick={() => openCallResult(b)}>{called ? "✓ โทรแล้ว" : <><IconPhone /> โทรแล้ว</>}</button>
                         </div>
                       );
                     })}
@@ -1311,11 +1317,11 @@ export default function AdminPage() {
               <div className="admin-tools" style={{ marginBottom: 14, padding: "14px 14px 0" }}>
                 <select className="date-input" value={serviceFilter} onChange={(e) => setServiceFilter(e.target.value)}>
                   <option value="all">ทุกบริการ</option>
-                  {services.map((s) => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                  {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
                 <select className="date-input" value={cbStatus} onChange={(e) => setCbStatus(e.target.value)}>
                   <option value="pending">⏳ รอนัดหมาย (ค้างทำ)</option>
-                  <option value="confirmed">✅ นัดแล้ว</option>
+                  <option value="confirmed">✓ นัดแล้ว</option>
                   <option value="cancelled">ยกเลิก</option>
                   <option value="all">ทั้งหมด</option>
                 </select>
@@ -1323,7 +1329,7 @@ export default function AdminPage() {
               </div>
               <div className="table-scroll">
               {!cb.total ? (
-                <div className="empty-state"><div style={{ fontSize: 40, marginBottom: 8 }}>☎️</div>ยังไม่มีคำขอรอนัดหมาย</div>
+                <div className="empty-state"><div style={{ marginBottom: 8 }}><IconPhoneAlt size={40} /></div>ยังไม่มีคำขอรอนัดหมาย</div>
               ) : (
                 <>
                   <table className="booking-table">
@@ -1339,15 +1345,15 @@ export default function AdminPage() {
                           <tr key={b.code}>
                             <td className="td-time">{new Date(b.createdAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</td>
                             <td className="td-qno"><b>{b.code}</b><span className="td-sub">คำขอที่ {b.qno}</span></td>
-                            <td className="td-name td-name-click" title="คลิกเพื่อดูรายละเอียดผู้ขอ" onClick={() => setDetail(b)}><b>{b.name}</b><span>{phoneShow(b)}{emailShow(b) ? " · ✉ " + emailShow(b) : ""}{b.note ? " · 📝 " + b.note : ""} <RevealBtn b={b} /></span></td>
-                            <td>{s.icon} {s.name}<span className="td-sub">{item ? item.name : ""}</span></td>
+                            <td className="td-name td-name-click" title="คลิกเพื่อดูรายละเอียดผู้ขอ" onClick={() => setDetail(b)}><b>{b.name}</b><span>{phoneShow(b)}{emailShow(b) ? " · ✉ " + emailShow(b) : ""}{b.note ? <> · <IconNote /> {b.note}</> : ""} <RevealBtn b={b} /></span></td>
+                            <td><SvcIcon icon={s.icon} /> {s.name}<span className="td-sub">{item ? item.name : ""}</span></td>
                             <td className="td-time">{b.date
                               ? <><b>{fmtDateShort(b.date)}</b><span className="td-sub">{fmtDayShort(b.date)} · เวลา {b.time} น.</span></>
                               : <span className="td-sub">— {b.status === "confirmed" ? "ติดต่อแล้วแต่ยังไม่ได้นัดเวลา" : "ยังไม่ได้นัด"}</span>}</td>
                             <td>{b.rights}</td>
                             <td><span className={"badge " + stCls}>{st}</span></td>
                             <td><div className="row-actions">
-                              {b.status !== "cancelled" && <button className="btn-confirm" onClick={() => openCbSched(b)}>{b.date ? "ปรับเวลานัด" : "📅 นัดเวลา"}</button>}
+                              {b.status !== "cancelled" && <button className="btn-confirm" onClick={() => openCbSched(b)}>{b.date ? "ปรับเวลานัด" : <><IconCalendar /> นัดเวลา</>}</button>}
                               {b.status !== "cancelled" && <button className="btn-cancel-row" onClick={() => cbAction(b.code, "cancelled")}>ยกเลิก</button>}
                             </div></td>
                           </tr>
@@ -1366,7 +1372,7 @@ export default function AdminPage() {
           <section className="admin-pane active">
             <div className="table-card rep-toolbar">
               <div>
-                <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>📊 รายงานภาพรวม</h2>
+                <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconReport /> รายงานภาพรวม</h2>
                 <p className="hint" style={{ color: "var(--muted)", margin: 0, fontSize: "0.9rem" }}>
                   {reports ? (reports.mode === "all"
                     ? `ข้อมูลทุกวันตั้งแต่เริ่มใช้ระบบ · แนวโน้มกราฟแสดง 90 วันล่าสุด`
@@ -1420,7 +1426,7 @@ export default function AdminPage() {
                         transform: `translate(${flipX ? "-100%" : "0"}, ${flipY ? "-100%" : "0"})`,
                       }}>
                         <b>{fmtFullTh(d.date)}</b>
-                        รวม {d.total} คิว · 🌐 Website {d.online} · 🚶 Online {d.walkin} · 🤝 ตัวแทน {d.agency}
+                        รวม {d.total} คิว · <IconGlobe /> Website {d.online} · <IconWalkin /> Online {d.walkin} · <IconAgency /> ตัวแทน {d.agency}
                       </div>
                     );
                   })()}
@@ -1437,13 +1443,13 @@ export default function AdminPage() {
 
                   <div className="rep-two">
                     <div className="table-card rep-card">
-                      <h3>📈 แนวโน้มคิวรายวัน <span className="rep-sub">(คิวที่ไม่ถูกยกเลิก · แบ่งสีตามช่องทาง)</span></h3>
+                      <h3><IconTrend /> แนวโน้มคิวรายวัน <span className="rep-sub">(คิวที่ไม่ถูกยกเลิก · แบ่งสีตามช่องทาง)</span></h3>
                       {(() => {
                         const d = repHover && reports.daily.find((x) => x.date === repHover.date);
                         return (
                           <div className="rep-hover-info">
                             {d
-                              ? <><b>{fmtFullTh(d.date)}</b> — รวม {d.total} คิว · 🌐 Website {d.online} · 🚶 Online {d.walkin} · 🤝 ตัวแทน {d.agency}</>
+                              ? <><b>{fmtFullTh(d.date)}</b> — รวม {d.total} คิว · <IconGlobe /> Website {d.online} · <IconWalkin /> Online {d.walkin} · <IconAgency /> ตัวแทน {d.agency}</>
                               : <span className="hint" style={{ color: "var(--muted)" }}>ชี้เมาส์ (หรือแตะ) ที่แท่งของวันใดก็ได้เพื่อดูรายละเอียด</span>}
                           </div>
                         );
@@ -1479,7 +1485,7 @@ export default function AdminPage() {
                     </div>
 
                     <div className="table-card rep-card">
-                      <h3>🥧 สัดส่วนช่องทาง</h3>
+                      <h3><IconReport /> สัดส่วนช่องทาง</h3>
                       <div className="rep-donut-wrap">
                         <svg viewBox="0 0 140 140" className="rep-donut">
                           {donutSegs.map((s) => (
@@ -1494,7 +1500,7 @@ export default function AdminPage() {
                           {reports.byChannel.map((c) => {
                             const ch = CONFIG.channels[c.ch];
                             return (
-                              <span key={c.ch}><i style={{ background: CH_COLORS[c.ch] }} /> {ch.icon} {ch.label} <b>{fmtN(c.total)}</b> ({Math.round((c.total / chTotal) * 100)}%)</span>
+                              <span key={c.ch}><i style={{ background: CH_COLORS[c.ch] }} /> <SvcIcon icon={ch.icon} /> {ch.label} <b>{fmtN(c.total)}</b> ({Math.round((c.total / chTotal) * 100)}%)</span>
                             );
                           })}
                         </div>
@@ -1504,10 +1510,10 @@ export default function AdminPage() {
 
                   <div className="rep-two">
                     <div className="table-card rep-card">
-                      <h3>🩺 คิวแยกตามบริการ</h3>
+                      <h3><StethoscopeIcon /> คิวแยกตามบริการ</h3>
                       {reports.byService.map((s) => (
                         <div key={s.id} className="rep-hrow" title={`${s.name}: ${s.total} คิว · ยืนยันแล้ว ${s.confirmed}`}>
-                          <span className="rep-hname">{s.icon} {s.name}</span>
+                          <span className="rep-hname"><SvcIcon icon={s.icon} /> {s.name}</span>
                           <div className="rep-hbar"><div style={{ width: (s.total / maxSvc) * 100 + "%" }} /></div>
                           <span className="rep-hval"><b>{fmtN(s.total)}</b> คิว · ยืนยัน {fmtN(s.confirmed)}</span>
                         </div>
@@ -1516,7 +1522,7 @@ export default function AdminPage() {
                     </div>
 
                     <div className="table-card rep-card">
-                      <h3>⏰ ช่วงเวลายอดนิยม</h3>
+                      <h3><IconClock /> ช่วงเวลายอดนิยม</h3>
                       <div className="rep-bars rep-bars-slot">
                         {reports.bySlot.map((s) => (
                           <div key={s.time} className="rep-bar-col" title={`${s.time} น. — ${s.total} คิว`}>
@@ -1525,7 +1531,7 @@ export default function AdminPage() {
                           </div>
                         ))}
                       </div>
-                      <h3 style={{ marginTop: 14 }}>📅 กระจายตามวันสัปดาห์</h3>
+                      <h3 style={{ marginTop: 14 }}><IconCalendar /> กระจายตามวันสัปดาห์</h3>
                       <div className="rep-bars rep-bars-slot">
                         {reports.byDow.map((s) => (
                           <div key={s.dow} className="rep-bar-col" title={`${s.label} — ${s.total} คิว`}>
@@ -1539,7 +1545,7 @@ export default function AdminPage() {
 
                   <div className="rep-two">
                     <div className="table-card rep-card">
-                      <h3>🤝 อันดับตัวแทน <span className="rep-sub">(เรียงตามจำนวนคิวที่ส่งมา — เห็นว่าตัวแทนไหนนำลูกค้ามากี่คน มาจริงกี่คน)</span></h3>
+                      <h3><IconAgency /> อันดับตัวแทน <span className="rep-sub">(เรียงตามจำนวนคิวที่ส่งมา — เห็นว่าตัวแทนไหนนำลูกค้ามากี่คน มาจริงกี่คน)</span></h3>
                       <table className="mini-table">
                         {reports.agencies.length ? (
                           <>
@@ -1569,7 +1575,7 @@ export default function AdminPage() {
                     </div>
 
                     <div className="table-card rep-card">
-                      <h3>🔥 รายการย่อยยอดนิยม <span className="rep-sub">(8 อันดับแรก ไม่นับคิวที่ยกเลิก)</span></h3>
+                      <h3><IconFire /> รายการย่อยยอดนิยม <span className="rep-sub">(8 อันดับแรก ไม่นับคิวที่ยกเลิก)</span></h3>
                       <table className="mini-table">
                         {reports.topItems.length ? (
                           <>
@@ -1593,7 +1599,7 @@ export default function AdminPage() {
         {tab === "history" && can(me.role, "logs.view") && (
           <section className="admin-pane active">
             <div className="table-card" style={{ padding: 20 }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🧾 ประวัติการใช้งาน</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconHistory /> ประวัติการใช้งาน</h2>
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>ใคร ทำอะไร เมื่อไหร่ (ตามข้อกำหนด PDPA) — เก็บรายการล่าสุดไม่เกิน 5,000 รายการ</p>
               <div className="admin-tools" style={{ marginBottom: 14 }}>
                 <div className="date-mode" role="group" aria-label="ช่วงเวลาของประวัติ">
@@ -1610,8 +1616,8 @@ export default function AdminPage() {
                   <option value="all">ทุกผู้ใช้</option>
                   {logUsers.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
-                <input type="search" className="date-input search-input" placeholder="🔍 ค้นหา รายละเอียด/ผู้ใช้" value={logF.q} onChange={(e) => setLogF((f) => ({ ...f, q: e.target.value }))} />
-                <button className="btn btn-ghost btn-sm" type="button" onClick={loadLogs}>🔄 รีเฟรช</button>
+                <input type="search" className="date-input search-input" placeholder="ค้นหา รายละเอียด/ผู้ใช้" value={logF.q} onChange={(e) => setLogF((f) => ({ ...f, q: e.target.value }))} />
+                <button className="btn btn-ghost btn-sm" type="button" onClick={loadLogs}><IconRefresh /> รีเฟรช</button>
               </div>
               <div className="log-meta">
                 <span>พบ {filteredLogs.length.toLocaleString("th-TH")} รายการ จาก {logs.length.toLocaleString("th-TH")} รายการที่เก็บไว้</span>
@@ -1620,9 +1626,9 @@ export default function AdminPage() {
                 )}
               </div>
               {!logs.length ? (
-                <div className="empty-state"><div style={{ fontSize: 40, marginBottom: 8 }}>🧾</div>ยังไม่มีประวัติการใช้งานเลย</div>
+                <div className="empty-state"><div style={{ marginBottom: 8 }}><IconHistory size={40} /></div>ยังไม่มีประวัติการใช้งานเลย</div>
               ) : !filteredLogs.length ? (
-                <div className="empty-state"><div style={{ fontSize: 40, marginBottom: 8 }}>🔍</div>ไม่พบรายการที่ตรงกับตัวกรอง</div>
+                <div className="empty-state"><div style={{ marginBottom: 8 }}><IconSearch size={40} /></div>ไม่พบรายการที่ตรงกับตัวกรอง</div>
               ) : (
                 <>
                   <div className="audit-list page">
@@ -1645,7 +1651,7 @@ export default function AdminPage() {
         {tab === "agencies" && (
           <section className="admin-pane active">
             <div className="table-card" style={{ padding: 20 }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🤝 ข้อมูลหลักตัวแทน (Master Data)</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconAgency /> ข้อมูลหลักตัวแทน (Master Data)</h2>
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>
                 รหัส+ชื่อตัวแทนที่ใช้ทั่วระบบ (ตัวกรองตารางคิว · รายงาน · รับคิวชุด · นำเข้าไฟล์) — รหัสสร้างแล้วแก้ไม่ได้เพราะคิวเก่าอ้างอยู่ แต่แก้ชื่อ/ติดต่อได้ตลอด
               </p>
@@ -1653,7 +1659,7 @@ export default function AdminPage() {
                 <span className="hint" style={{ alignSelf: "center", color: "var(--muted)", fontSize: "0.88rem" }}>
                   {agencies.length} ตัวแทน ({agencies.filter((a) => a.active !== false).length} ที่เปิดใช้) · รวมคิวที่นำมา {agencies.reduce((n, a) => n + (a.bookings || 0), 0).toLocaleString("th-TH")} คิว
                 </span>
-                {can(me.role, "agency.manage") && <button className="btn btn-primary btn-sm" type="button" onClick={() => openAgencyModal(null)}>➕ เพิ่มตัวแทน</button>}
+                {can(me.role, "agency.manage") && <button className="btn btn-primary btn-sm" type="button" onClick={() => openAgencyModal(null)}><IconPlus /> เพิ่มตัวแทน</button>}
               </div>
               <table className="mini-table">
                 <thead><tr><th>รหัส</th><th>ชื่อตัวแทน</th><th>ติดต่อ</th><th>คิวในระบบ</th><th>บัญชีล็อกอิน</th><th>สถานะ</th>{can(me.role, "agency.manage") && <th>จัดการ</th>}</tr></thead>
@@ -1666,7 +1672,7 @@ export default function AdminPage() {
                     <td>{a.hasAccount
                       ? <span className="badge badge-confirmed">✓ มีบัญชี</span>
                       : (can(me.role, "agency.manage")
-                        ? <button className="btn-confirm" onClick={() => agencyAction("genAccount", a)} title="สร้างบัญชีล็อกอินให้ตัวแทนรายนี้ (gen รหัสผ่านให้อัตโนมัติ)">🔑 สร้างบัญชี</button>
+                        ? <button className="btn-confirm" onClick={() => agencyAction("genAccount", a)} title="สร้างบัญชีล็อกอินให้ตัวแทนรายนี้ (gen รหัสผ่านให้อัตโนมัติ)"><IconKey /> สร้างบัญชี</button>
                         : <span className="badge badge-cancelled">— ยังไม่มี</span>)}</td>
                     <td>{a.active === false ? <span className="badge badge-cancelled">ปิดใช้</span> : <span className="badge badge-confirmed">ใช้งาน</span>}</td>
                     {can(me.role, "agency.manage") && (
@@ -1679,7 +1685,7 @@ export default function AdminPage() {
                   </tr>
                 ))}</tbody>
               </table>
-              {!agencies.length && <div className="empty-state"><div style={{ fontSize: 40, marginBottom: 8 }}>🤝</div>ยังไม่มีตัวแทน — กด "เพิ่มตัวแทน" เพื่อเริ่ม</div>}
+              {!agencies.length && <div className="empty-state"><div style={{ marginBottom: 8 }}><IconAgency size={40} /></div>ยังไม่มีตัวแทน — กด "เพิ่มตัวแทน" เพื่อเริ่ม</div>}
             </div>
           </section>
         )}
@@ -1687,20 +1693,20 @@ export default function AdminPage() {
         {tab === "services" && can(me.role, "services.manage") && (
           <section className="admin-pane active">
             <div className="table-card" style={{ padding: 20 }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>⚙️ บริการที่เปิดให้จองล่วงหน้า</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconSettings /> บริการที่เปิดให้จองล่วงหน้า</h2>
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>เพิ่ม/แก้ไข/ปิดบริการ รายการย่อย ความจุ และช่วงเวลาเฉพาะ — หน้าจองผู้ป่วยใช้ค่าที่ตั้งไว้ทันที</p>
               <div className="admin-tools" style={{ marginBottom: 14 }}>
                 <span className="hint" style={{ alignSelf: "center", color: "var(--muted)", fontSize: "0.88rem" }}>
                   {services.length} บริการ ({services.filter((s) => s.active !== false).length} ที่เปิดให้จอง)
                 </span>
-                <button className="btn btn-primary btn-sm" type="button" onClick={() => openSvcModal(null)}>➕ เพิ่มบริการ</button>
+                <button className="btn btn-primary btn-sm" type="button" onClick={() => openSvcModal(null)}><IconPlus /> เพิ่มบริการ</button>
               </div>
               <table className="mini-table">
                 <thead><tr><th>บริการ</th><th>ประเภท</th><th>วันให้บริการ</th><th>รายการย่อย</th><th>ความจุ/ช่วง</th><th>ช่วงเวลา</th><th>สถานะ</th><th>จัดการ</th></tr></thead>
                 <tbody>{services.map((s) => (
                   <tr key={s.id}>
-                    <td><b>{s.icon} {s.name}</b><span className="td-sub">{s.desc}</span></td>
-                    <td>{s.bookingMode === "callback" ? "☎️ ไม่มีเวลานัด" : "📅 เลือกวัน–เวลา"}</td>
+                    <td><b><SvcIcon icon={s.icon} /> {s.name}</b><span className="td-sub">{s.desc}</span></td>
+                    <td>{s.bookingMode === "callback" ? <><IconPhoneAlt /> ไม่มีเวลานัด</> : <><IconCalendar /> เลือกวัน–เวลา</>}</td>
                     <td>{s.bookingMode === "callback" ? "—" : fmtDays(svcDays(s))}</td>
                     <td>{s.items.length ? `${s.items.length} รายการ` : "— ไม่มีรายการย่อย"}</td>
                     <td>{s.capacity || 4} คน</td>
@@ -1719,7 +1725,7 @@ export default function AdminPage() {
             </div>
             <div style={{ height: 16 }} />
             <div className="table-card" style={{ padding: 20 }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🕐 ช่วงเวลากลาง</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconClock /> ช่วงเวลากลาง</h2>
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>ใช้กับบริการที่ไม่ได้ตั้งเวลาเฉพาะ</p>
               <div className="slot-chips">
                 {globalSlots.map((t) => (
@@ -1746,7 +1752,7 @@ export default function AdminPage() {
               <>
                 <div style={{ height: 16 }} />
                 <div className="table-card" style={{ padding: 20 }}>
-                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>📅 ระยะเวลาเปิดจองล่วงหน้า</h2>
+                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconCalendar /> ระยะเวลาเปิดจองล่วงหน้า</h2>
                   <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>ผู้ป่วยเลือกวันนัดได้ล่วงหน้าไม่เกินกี่วัน (นับจากวันนี้) — มีผลทันทีทุกช่องทาง</p>
                   <div className="slot-add">
                     <input type="number" className="time-input" min="1" max="90" style={{ width: 90 }} value={daysAheadVal} onChange={(e) => setDaysAheadVal(e.target.value)} />
@@ -1757,7 +1763,7 @@ export default function AdminPage() {
                 </div>
                 <div style={{ height: 16 }} />
                 <div className="table-card" style={{ padding: 20 }}>
-                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🗑 ระยะเวลาเก็บข้อมูล (PDPA)</h2>
+                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconTrash /> ระยะเวลาเก็บข้อมูล (PDPA)</h2>
                   <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>
                     ข้อมูลการจอง (ชื่อ/เบอร์/อีเมล/หมายเหตุ) ที่เก่ากว่ากำหนดจะถูกลบอัตโนมัติพร้อมประวัติการโทร — ตามหลัก "เก็บเท่าที่จำเป็น" ของ PDPA (แนะนำ 365 วัน) ระบบล้างให้เองวันละครั้ง
                   </p>
@@ -1770,7 +1776,7 @@ export default function AdminPage() {
                 </div>
                 <div style={{ height: 16 }} />
                 <div className="table-card" style={{ padding: 20 }}>
-                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>💳 สิทธิการรักษา (Payment / coverage)</h2>
+                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconCard /> สิทธิการรักษา (Payment / coverage)</h2>
                   <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>
                     ตัวเลือกใน dropdown ของหน้าจอง — กรอกทั้งชื่อไทยและอังกฤษ (โหมด EN จะแสดงชื่ออังกฤษ ถ้าเว้นว่างจะแสดงชื่อไทย)
                   </p>
@@ -1792,7 +1798,7 @@ export default function AdminPage() {
                 </div>
                 <div style={{ height: 16 }} />
                 <div className="table-card" style={{ padding: 20 }}>
-                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>📣 ช่องทางผู้ป่วย (master data)</h2>
+                  <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconMegaphone /> ช่องทางผู้ป่วย (master data)</h2>
                   <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>
                     ตัวเลือก "ช่องทาง — ผู้ป่วยรู้จัก/มาจาก" ในหน้ารับคิว walk-in — เช่น Facebook, LINE, Google, เพื่อนแนะนำ
                   </p>
@@ -1840,20 +1846,20 @@ export default function AdminPage() {
         {tab === "users" && can(me.role, "users.manage") && (
           <section className="admin-pane active">
             <div className="table-card" style={{ padding: 20 }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>👥 บัญชีเจ้าหน้าที่</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconUsers /> บัญชีเจ้าหน้าที่</h2>
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>เพิ่ม/แก้ไขบัญชีและสิทธิ์การใช้งาน — ตั้งรหัสผ่านใหม่ได้จากปุ่ม "แก้ไข" (เว้นว่างไว้ = คงรหัสเดิม)</p>
               <div className="admin-tools" style={{ marginBottom: 14 }}>
                 <span className="hint" style={{ alignSelf: "center", color: "var(--muted)", fontSize: "0.88rem" }}>
                   {staff.length} บัญชี ({staff.filter((u) => u.role === "admin").length} admin · {staff.filter((u) => u.role === "sale").length} sale · {staff.filter((u) => u.role === "cs").length} cs · {staff.filter((u) => u.role === "agency").length} ตัวแทน)
                 </span>
-                <button className="btn btn-primary btn-sm" type="button" onClick={() => openUserModal(null)}>➕ เพิ่มผู้ใช้</button>
+                <button className="btn btn-primary btn-sm" type="button" onClick={() => openUserModal(null)}><IconPlus /> เพิ่มผู้ใช้</button>
               </div>
               <table className="mini-table">
                 <thead><tr><th>ชื่อ</th><th>ชื่อผู้ใช้</th><th>สิทธิ์</th><th>จัดการ</th></tr></thead>
                 <tbody>{staff.map((u) => (
                   <tr key={u.id}>
-                    <td><b>👤 {u.name}</b>{u.id === me.id ? <span className="td-sub"> (บัญชีที่ใช้อยู่)</span> : null}</td>
-                    <td>{u.username}{u.agencyCode ? <span className="td-sub">🤝 {u.agencyCode}</span> : null}</td>
+                    <td><b><IconUser /> {u.name}</b>{u.id === me.id ? <span className="td-sub"> (บัญชีที่ใช้อยู่)</span> : null}</td>
+                    <td>{u.username}{u.agencyCode ? <span className="td-sub"><IconAgency /> {u.agencyCode}</span> : null}</td>
                     <td><span className={"badge role-" + u.role}>{roleLabel(u.role)}</span></td>
                     <td><div className="row-actions">
                       <button className="btn-confirm" onClick={() => openUserModal(u)}>แก้ไข</button>
@@ -1865,7 +1871,7 @@ export default function AdminPage() {
             </div>
             <div style={{ height: 16 }} />
             <div className="table-card" style={{ padding: 20 }}>
-              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>🔑 สิทธิ์ของแต่ละบทบาท</h2>
+              <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconKey /> สิทธิ์ของแต่ละบทบาท</h2>
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 16px", fontSize: "0.9rem" }}>ทุกบทบาททำงานคิวพื้นฐานได้ (ดู/ค้นหา/ยืนยัน/เลื่อน/ยกเลิก, รับ walk-in, โทรยืนยัน, จัดนัดหมาย) — ต่างกันที่ส่วนเพิ่มด้านล่าง · รายงาน / ประวัติการใช้งาน / จัดการบริการ เป็นสิทธิ์ผู้ดูแลระบบเท่านั้น</p>
               <table className="mini-table">
                 <thead><tr><th>บทบาท</th><th>ทำส่วนเพิ่มนี้ได้</th></tr></thead>
@@ -1893,7 +1899,7 @@ export default function AdminPage() {
       <Modal show={!!walkin} onClose={() => setWalkin(null)}>
         {walkin && (
           <>
-            <h2>🚶 รับคิวผู้ป่วย walk-in</h2>
+            <h2><IconWalkin /> รับคิวผู้ป่วย walk-in</h2>
             <p className="hint">กรอกสั้นๆ ให้ครบแล้วกดบันทึก — ค่าเริ่มต้นเป็นวันนี้ เลือกวันอื่นได้ถ้าผู้ป่วยนัดมาลงทะเบียนล่วงหน้า</p>
             <form onSubmit={submitWalkin} noValidate>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
@@ -1910,7 +1916,7 @@ export default function AdminPage() {
                 </div>
                 <div className="form-field"><label>แผนก *</label>
                   <select className="form-select" value={walkin.service} onChange={(e) => { setWalkin({ ...walkin, service: e.target.value }); fillWalkinTimes(e.target.value, walkin.date); }}>
-                    {services.filter((s) => s.active !== false).map((s) => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                    {services.filter((s) => s.active !== false).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div className="form-field"><label>วันที่ *</label>
@@ -1939,7 +1945,7 @@ export default function AdminPage() {
                   <select className="form-select" value={walkin.agency} onChange={(e) => setWalkin({ ...walkin, agency: e.target.value })}>
                     <option value="">ไม่ใช่ — ผู้ป่วยมาเอง</option>
                     {agencies.filter((a) => a.active !== false).map((a) => (
-                      <option key={a.code} value={a.code}>🤝 {a.code} — {a.name}</option>
+                      <option key={a.code} value={a.code}>{a.code} — {a.name}</option>
                     ))}
                   </select>
                 </div>
@@ -1963,13 +1969,13 @@ export default function AdminPage() {
       <Modal show={!!batch} onClose={() => setBatch(null)}>
         {batch && (
           <>
-            <h2>📦 รับคิวเป็นชุดจากตัวแทน</h2>
+            <h2><IconBox /> รับคิวเป็นชุดจากตัวแทน</h2>
             <p className="hint">กรอกรายชื่อทีละคน แล้วกด <b>+ เพิ่มคน</b> สำหรับคนถัดไป (กด Enter ในช่องก็เพิ่มได้) — ช่องติดต่อใส่ <b>เบอร์โทรหรืออีเมล</b>อย่างใดอย่างหนึ่งก็ได้ ไม่ใส่ก็ได้แต่จะติดต่อผู้ป่วยรายนั้นไม่ได้</p>
             <form onSubmit={submitBatch} noValidate>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
                 {isAg ? (
                   <div className="form-field"><label>ตัวแทน (บัญชีของท่าน)</label>
-                    <input className="form-input" value={`🤝 ${me.agencyCode} — ${agencies.find((a) => a.code === me.agencyCode)?.name || ""}`} disabled />
+                    <input className="form-input" value={`${me.agencyCode} — ${agencies.find((a) => a.code === me.agencyCode)?.name || ""}`} disabled />
                   </div>
                 ) : (
                 <div className={"form-field" + (batch.invalid && !batch.agency.trim() ? " invalid" : "")}>
@@ -1981,7 +1987,7 @@ export default function AdminPage() {
                 )}
                 <div className="form-field"><label>บริการ *</label>
                   <select className="form-select" value={batch.service} onChange={(e) => { setBatch({ ...batch, service: e.target.value }); fillBatchTimes(e.target.value, batch.date); }}>
-                    {services.filter((s) => s.active !== false).map((s) => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
+                    {services.filter((s) => s.active !== false).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
                 <div className="form-grid">
@@ -2030,7 +2036,7 @@ export default function AdminPage() {
                     if (!rows.length) return null;
                     return (
                       <span className="hint" style={{ display: "block", marginTop: 6, fontSize: "0.85rem", color: noContact ? "#b45309" : "var(--muted)" }}>
-                        กรอกแล้ว {rows.length} คน{noContact ? ` — ⚠️ มี ${noContact} คนที่ยังไม่ได้ใส่ช่องทางติดต่อ (จะติดต่อไม่ได้)` : " — ทุกคนมีช่องทางติดต่อครบ ✓"}
+                        กรอกแล้ว {rows.length} คน{noContact ? <> — <IconWarn /> มี {noContact} คนที่ยังไม่ได้ใส่ช่องทางติดต่อ (จะติดต่อไม่ได้)</> : " — ทุกคนมีช่องทางติดต่อครบ ✓"}
                       </span>
                     );
                   })()}
@@ -2050,10 +2056,10 @@ export default function AdminPage() {
       <Modal show={!!imp} onClose={() => setImp(null)} wide>
         {imp && (
           <>
-            <h2>📥 นำเข้าคิวจากไฟล์ Excel / CSV (ตัวแทน)</h2>
+            <h2><IconImport /> นำเข้าคิวจากไฟล์ Excel / CSV (ตัวแทน)</h2>
             <p className="hint">โหลดเทมเพลต → ตัวแทนกรอกรายชื่อ (ต่างวัน/ต่างเวลา/ต่างบริการในไฟล์เดียวได้) → เลือกไฟล์ → ตรวจดู preview → นำเข้า</p>
             <div className="import-steps">
-              <a className="btn btn-ghost btn-sm" href="/api/agency-template" download="agency-queue-template.xlsx">⬇ ดาวน์โหลดเทมเพลต (.xlsx)</a>
+              <a className="btn btn-ghost btn-sm" href="/api/agency-template" download="agency-queue-template.xlsx"><IconExcel /> ดาวน์โหลดเทมเพลต (.xlsx)</a>
               <span className="hint" style={{ alignSelf: "center" }}>หรือ</span>
               <input type="file" className="form-input" accept=".xlsx,.csv" ref={impFileRef} onChange={onImportFile} />
             </div>
@@ -2093,7 +2099,7 @@ export default function AdminPage() {
               {isAg ? (
                 <div className="form-field" style={{ marginTop: 14 }}>
                   <label>ตัวแทนของทั้งไฟล์นี้ (บัญชีของท่าน)</label>
-                  <input className="form-input" value={`🤝 ${me.agencyCode} — ${agencies.find((a) => a.code === me.agencyCode)?.name || ""}`} disabled />
+                  <input className="form-input" value={`${me.agencyCode} — ${agencies.find((a) => a.code === me.agencyCode)?.name || ""}`} disabled />
                 </div>
               ) : (
               <div className={"form-field" + (imp.invalid && !imp.agency.trim() ? " invalid" : "")} style={{ marginTop: 14 }}>
@@ -2118,7 +2124,7 @@ export default function AdminPage() {
       <Modal show={!!resched} onClose={() => setResched(null)}>
         {resched && (
           <>
-            <h2>📅 เลื่อนนัด</h2>
+            <h2><IconCalendar /> เลื่อนนัด</h2>
             <p className="hint">{resched.info}</p>
             <form onSubmit={submitResched} noValidate>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
@@ -2145,7 +2151,7 @@ export default function AdminPage() {
       <Modal show={!!cbSched} onClose={() => setCbSched(null)}>
         {cbSched && (
           <form onSubmit={submitCbSched} noValidate>
-            <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>📅 นัดเวลาให้คำขอรอนัดหมาย</h2>
+            <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconCalendar /> นัดเวลาให้คำขอรอนัดหมาย</h2>
             <p className="hint" style={{ margin: "0 0 14px" }}>{cbSched.info}</p>
             <div className="form-grid">
               <div className="form-field"><label>วันที่นัด *</label>
@@ -2161,7 +2167,7 @@ export default function AdminPage() {
               </div>
             </div>
             <p className="hint" style={{ margin: "0 0 8px", fontSize: "0.85rem" }}>บันทึกแล้วคำขอจะกลายเป็นนัดจริง — ขึ้นในตารางคิวของวันนัด และแท็บนัดที่กำลังจะถึงทันที</p>
-            {cbSched.err && <div className="err-box" style={{ display: "block" }}>⚠️ {cbSched.err}</div>}
+            {cbSched.err && <div className="err-box" style={{ display: "block" }}><IconWarn /> {cbSched.err}</div>}
             <div className="modal-actions">
               <button className="btn btn-ghost btn-sm" type="button" onClick={() => setCbSched(null)}>ยกเลิก</button>
               <button className="btn btn-primary btn-sm" type="submit">บันทึกนัด ✓</button>
@@ -2178,11 +2184,11 @@ export default function AdminPage() {
             <p className="hint" style={{ margin: "0 0 6px" }}>{callResult.info}</p>
             <div className="call-opts">
               <button type="button" className="call-opt" disabled={callResult.busy} onClick={() => submitCallResult("confirmed")}>
-                <span className="co-ico">✅</span>
+                <span className="co-ico"><IconCheck /></span>
                 <span><b>ยืนยันมาตามนัด</b><span className="co-sub">เปลี่ยนสถานะเป็น "ยืนยันแล้ว"</span></span>
               </button>
               <button type="button" className="call-opt" disabled={callResult.busy} onClick={enterCallResched}>
-                <span className="co-ico">📅</span>
+                <span className="co-ico"><IconCalendar /></span>
                 <span><b>เลื่อนนัด</b><span className="co-sub">เลือกวันที่–เวลาใหม่ให้ผู้ป่วย</span></span>
               </button>
               <button type="button" className="call-opt co-danger" disabled={callResult.busy} onClick={() => submitCallResult("cancelled")}>
@@ -2190,7 +2196,7 @@ export default function AdminPage() {
                 <span><b>ยกเลิกนัด</b><span className="co-sub">เปลี่ยนสถานะเป็น "ยกเลิก"</span></span>
               </button>
               <button type="button" className="call-opt" disabled={callResult.busy} onClick={() => submitCallResult("mark")}>
-                <span className="co-ico">☎️</span>
+                <span className="co-ico"><IconPhoneAlt /></span>
                 <span><b>บันทึกว่าโทรแล้ว</b><span className="co-sub">ไม่เปลี่ยนสถานะนัด — ใช้ตอนยังติดต่อไม่ได้ จะได้โทรใหม่</span></span>
               </button>
             </div>
@@ -2202,7 +2208,7 @@ export default function AdminPage() {
         )}
         {callResult && callResult.mode === "resched" && (
           <form onSubmit={(e) => { e.preventDefault(); submitCallResult("resched"); }} noValidate>
-            <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}>📅 เลื่อนนัดหลังโทรแล้ว</h2>
+            <h2 style={{ margin: "0 0 4px", fontSize: "1.1rem", color: "var(--ink)" }}><IconCalendar /> เลื่อนนัดหลังโทรแล้ว</h2>
             <p className="hint" style={{ margin: "0 0 14px" }}>{callResult.info}</p>
             <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
               <div className="form-field"><label>วันที่ใหม่ *</label>
@@ -2229,7 +2235,7 @@ export default function AdminPage() {
       <Modal show={!!svcModal} onClose={() => setSvcModal(null)}>
         {svcModal && (
           <>
-            <h2>{svcModal.id ? "✏️ แก้ไขบริการ" : "➕ เพิ่มบริการใหม่"}</h2>
+            <h2>{svcModal.id ? <><IconPencil /> แก้ไขบริการ</> : <><IconPlus /> เพิ่มบริการใหม่</>}</h2>
             <p className="hint">ตั้งชื่อหมวดบริการ รายการย่อย ความจุ และช่วงเวลา</p>
             <form onSubmit={submitSvc} noValidate>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
@@ -2237,10 +2243,10 @@ export default function AdminPage() {
                   <div className="icon-picks">
                     {SVC_ICONS.map((i) => (
                       <button type="button" key={i} className={"icon-chip" + (svcModal.icon === i ? " sel" : "")}
-                        onClick={() => setSvcModal({ ...svcModal, icon: i })}>{i}</button>
+                        onClick={() => setSvcModal({ ...svcModal, icon: i })}><SvcIcon icon={i} /></button>
                     ))}
                   </div>
-                  <input className="form-input" type="text" maxLength={4} placeholder="🩺" value={svcModal.icon} onChange={(e) => setSvcModal({ ...svcModal, icon: e.target.value })} />
+                  <input className="form-input" type="text" maxLength={4} placeholder="" value={svcModal.icon} onChange={(e) => setSvcModal({ ...svcModal, icon: e.target.value })} />
                 </div>
                 <div className={"form-field" + (svcModal.invalid && !svcModal.name.trim() ? " invalid" : "")}>
                   <label>ชื่อบริการ *</label>
@@ -2258,8 +2264,8 @@ export default function AdminPage() {
                 </div>
                 <div className="form-field"><label>ประเภทการรับคิว *</label>
                   <select className="form-select" value={svcModal.mode} onChange={(e) => setSvcModal({ ...svcModal, mode: e.target.value })}>
-                    <option value="slot">📅 เลือกวัน–เวลาเอง (ปกติ)</option>
-                    <option value="callback">☎️ ไม่มีเวลานัด — โรงพยาบาลติดต่อกลับนัดให้</option>
+                    <option value="slot">เลือกวัน–เวลาเอง (ปกติ)</option>
+                    <option value="callback">ไม่มีเวลานัด — โรงพยาบาลติดต่อกลับนัดให้</option>
                   </select>
                   {svcModal.mode === "callback" && (
                     <span className="hint" style={{ display: "block", marginTop: 6, fontSize: "0.82rem" }}>
@@ -2274,7 +2280,7 @@ export default function AdminPage() {
                 )}
                 {svcModal.mode !== "callback" && (
                 <div className="form-field">
-                  <label>🕐 เวลาให้บริการ *</label>
+                  <label><IconClock /> เวลาให้บริการ *</label>
                   <div className="date-mode" role="group" aria-label="โหมดเวลาให้บริการ" style={{ marginBottom: 8 }}>
                     <button type="button" className={"dm-btn" + (svcModal.slotMode !== "perDay" ? " active" : "")}
                       onClick={() => setSvcModal({ ...svcModal, slotMode: "uniform" })}>เวลาเดียวกันทุกวัน</button>
@@ -2319,7 +2325,7 @@ export default function AdminPage() {
                     </>
                   ) : (
                     <>
-                      <label style={{ fontSize: "0.88rem", margin: "6px 0 4px" }}>📅 วันที่ให้บริการ</label>
+                      <label style={{ fontSize: "0.88rem", margin: "6px 0 4px" }}><IconCalendar /> วันที่ให้บริการ</label>
                       <div className="day-chips">
                         {DAY_ORDER.map((d) => {
                           const on = svcModal.days.includes(d);
@@ -2404,7 +2410,7 @@ export default function AdminPage() {
           const rv = revealed[detail.code] || null; // ค่าติดต่อเต็มที่ reveal แล้ว (ถ้ามี)
           return (
             <>
-              <h2>👤 รายละเอียดผู้จอง</h2>
+              <h2><IconUser /> รายละเอียดผู้จอง</h2>
               <div className="detail-head">
                 <div>
                   <div className="detail-name">{detail.name}</div>
@@ -2420,21 +2426,21 @@ export default function AdminPage() {
                   ? (rv && rv.phone ? <a href={"tel:" + rv.phone}>{rv.phone}</a> : <>{phoneShow(detail)} <RevealBtn b={detail} /></>)
                   : <span style={{ color: "var(--muted)", fontWeight: 400 }}>ไม่ระบุเบอร์</span>}</dd></div>
                 {detail.email ? <div><dt>อีเมล</dt><dd>{rv && rv.email ? <a href={"mailto:" + rv.email}>{rv.email}</a> : <>{emailShow(detail)} <RevealBtn b={detail} /></>}</dd></div> : null}
-                <div><dt>บริการ</dt><dd>{s.icon} {s.name}</dd></div>
+                <div><dt>บริการ</dt><dd><SvcIcon icon={s.icon} /> {s.name}</dd></div>
                 {item && <div><dt>รายการ</dt><dd>{item.name}</dd></div>}
-                <div><dt>วัน–เวลานัด</dt><dd>{detail.date ? <>{fmtFullTh(detail.date)} เวลา {detail.time} น.</> : "📞 รอนัดหมาย — ยังไม่มีวัน–เวลานัด"}</dd></div>
+                <div><dt>วัน–เวลานัด</dt><dd>{detail.date ? <>{fmtFullTh(detail.date)} เวลา {detail.time} น.</> : <><IconPhone /> รอนัดหมาย — ยังไม่มีวัน–เวลานัด</>}</dd></div>
                 <div><dt>สิทธิการรักษา</dt><dd>{detail.rights || "—"}</dd></div>
                 {detail.channel ? <div><dt>ช่องทาง</dt><dd>{detail.channel}</dd></div> : null}
                 {detail.agencyCode ? <div><dt>รหัสตัวแทน</dt><dd>{detail.agencyCode}</dd></div> : null}
                 <div><dt>หมายเหตุ</dt><dd>{detail.note || "—"}</dd></div>
                 <div><dt>สร้างเมื่อ</dt><dd>{detail.createdAt ? new Date(detail.createdAt).toLocaleString("th-TH", { dateStyle: "full", timeStyle: "short" }) + " น." : "—"}</dd></div>
-                {detail.consentAt ? <div><dt>ความยินยอม (PDPA)</dt><dd>{detail.consentVia === "online" ? "✅ ผู้ป่วยยินยอมผ่านเว็บไซต์" : "✅ เจ้าหน้าที่รับความยินยอม"} เมื่อ {new Date(detail.consentAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} น.</dd></div> : null}
-                {detail.erasedAt ? <div><dt>การลบข้อมูล</dt><dd>🗑 ลบข้อมูลส่วนบุคคลเมื่อ {new Date(detail.erasedAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} น. โดย {detail.erasedBy}</dd></div> : null}
+                {detail.consentAt ? <div><dt>ความยินยอม (PDPA)</dt><dd>{detail.consentVia === "online" ? <><IconCheck /> ผู้ป่วยยินยอมผ่านเว็บไซต์</> : <><IconCheck /> เจ้าหน้าที่รับความยินยอม</>} เมื่อ {new Date(detail.consentAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} น.</dd></div> : null}
+                {detail.erasedAt ? <div><dt>การลบข้อมูล</dt><dd><IconTrash /> ลบข้อมูลส่วนบุคคลเมื่อ {new Date(detail.erasedAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} น. โดย {detail.erasedBy}</dd></div> : null}
               </dl>
               <div className="modal-actions">
                 {/* PDPA (right to erasure): admin ลบข้อมูลส่วนบุคคลของคิวนี้ตามคำขอผู้ป่วย */}
                 {me && can(me.role, "data.erase") && !detail.erasedAt && (
-                  <button className="btn btn-cancel-row" type="button" style={{ marginRight: "auto" }} title="ลบชื่อ/เบอร์/อีเมล/หมายเหตุ ถาวร ตามคำขอของผู้ป่วย" onClick={() => eraseBooking(detail.code)}>🗑 ลบข้อมูล (PDPA)</button>
+                  <button className="btn btn-cancel-row" type="button" style={{ marginRight: "auto" }} title="ลบชื่อ/เบอร์/อีเมล/หมายเหตุ ถาวร ตามคำขอของผู้ป่วย" onClick={() => eraseBooking(detail.code)}><IconTrash /> ลบข้อมูล (PDPA)</button>
                 )}
                 <button className="btn btn-primary btn-sm" type="button" onClick={() => setDetail(null)}>ปิดหน้าต่าง</button>
               </div>
@@ -2450,11 +2456,11 @@ export default function AdminPage() {
           const svcList = calSvc === "all" ? calData.services : calData.services.filter((s) => s.id === calSvc);
           return (
             <>
-              <h2>🗓️ ที่นั่งรายช่วงเวลา — {fmtFullTh(calDay)}</h2>
+              <h2><IconCalendar /> ที่นั่งรายช่วงเวลา — {fmtFullTh(calDay)}</h2>
               <p className="hint" style={{ color: "var(--muted)", margin: "0 0 12px" }}>ตัวเลขคือที่นั่งที่ยังว่างของช่วงเวลานั้น · เหลือง = ใกล้เต็ม (เหลือ ≤ ¼ ของความจุ) · แดง = เต็ม · เทา = เวลาผ่านมาแล้ว</p>
               {calDay > calData.bookUntil && (
                 <p className="hint" style={{ margin: "0 0 12px", padding: "8px 12px", background: "var(--primary-softer)", borderRadius: 10, color: "var(--primary-dark)" }}>
-                  ℹ️ วันนี้ยังไม่เปิดให้จองล่วงหน้า (เปิดจองได้ถึง {fmtDateShort(calData.bookUntil)}) — ตัวเลขนี้เป็นภาพรวมความจุไว้วางแผน
+                  <IconInfo /> วันนี้ยังไม่เปิดให้จองล่วงหน้า (เปิดจองได้ถึง {fmtDateShort(calData.bookUntil)}) — ตัวเลขนี้เป็นภาพรวมความจุไว้วางแผน
                 </p>
               )}
               {svcList.map((s) => {
@@ -2463,7 +2469,7 @@ export default function AdminPage() {
                 return (
                   <div key={s.id} style={{ marginBottom: 14 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
-                      <b style={{ color: "var(--ink)" }}>{s.icon} {s.name}</b>
+                      <b style={{ color: "var(--ink)" }}><SvcIcon icon={s.icon} /> {s.name}</b>
                       <span className="hint" style={{ color: v.open ? "var(--muted)" : "#9ca3af", fontSize: "0.85rem" }}>
                         {v.open ? `ว่างรวม ${v.left}/${v.total} ที่` : "ไม่เปิดบริการวันนี้"}
                       </span>
@@ -2493,7 +2499,7 @@ export default function AdminPage() {
       <Modal show={!!genAcct} onClose={() => setGenAcct(null)}>
         {genAcct && (
           <>
-            <h2>🔑 สร้างบัญชีตัวแทน</h2>
+            <h2><IconKey /> สร้างบัญชีตัวแทน</h2>
             <p className="hint">{genAcct.code} — {genAcct.name}<br />ชื่อผู้ใช้ระบบ gen จากรหัสให้อัตโนมัติ · รหัสผ่านตั้งเองได้ หรือเว้นว่างให้ระบบสุ่มให้ (แสดงครั้งเดียวหลังบันทึก)</p>
             <form onSubmit={submitGenAcct} noValidate>
               <div className={"form-field" + (genAcct.invalid ? " invalid" : "")}>
@@ -2524,8 +2530,8 @@ export default function AdminPage() {
           };
           return (
             <>
-              <h2>🔑 บัญชีตัวแทนที่สร้างใหม่</h2>
-              <p className="hint">⚠️ รหัสผ่านแสดงครั้งเดียวเท่านั้น — คัดลอกเก็บไว้ส่งให้ตัวแทนก่อนปิดหน้าต่าง (ถ้าหายต้องตั้งรหัสใหม่ที่เมนูจัดการผู้ใช้)</p>
+              <h2><IconKey /> บัญชีตัวแทนที่สร้างใหม่</h2>
+              <p className="hint"><IconWarn /> รหัสผ่านแสดงครั้งเดียวเท่านั้น — คัดลอกเก็บไว้ส่งให้ตัวแทนก่อนปิดหน้าต่าง (ถ้าหายต้องตั้งรหัสใหม่ที่เมนูจัดการผู้ใช้)</p>
               <table className="mini-table" style={{ width: "100%" }}>
                 <thead><tr><th>ตัวแทน</th><th>ผู้ใช้</th><th>รหัสผ่าน</th></tr></thead>
                 <tbody>{creds.map((c) => (
@@ -2537,7 +2543,7 @@ export default function AdminPage() {
                 ))}</tbody>
               </table>
               <div className="modal-actions">
-                <button className="btn btn-ghost btn-sm" type="button" onClick={copyAll}>📋 คัดลอกทั้งหมด</button>
+                <button className="btn btn-ghost btn-sm" type="button" onClick={copyAll}><IconQueue /> คัดลอกทั้งหมด</button>
                 <button className="btn btn-primary btn-sm" type="button" onClick={() => setCreds(null)}>เก็บรหัสแล้ว ✓</button>
               </div>
             </>
@@ -2549,7 +2555,7 @@ export default function AdminPage() {
       <Modal show={!!agencyModal} onClose={() => setAgencyModal(null)}>
         {agencyModal && (
           <>
-            <h2>{agencyModal.id ? "✏️ แก้ไขตัวแทน" : "➕ เพิ่มตัวแทน"}</h2>
+            <h2>{agencyModal.id ? <><IconPencil /> แก้ไขตัวแทน</> : <><IconPlus /> เพิ่มตัวแทน</>}</h2>
             <p className="hint">{agencyModal.id ? "แก้ชื่อ/ช่องทางติดต่อได้ — รหัสห้ามแก้เพราะคิวเก่าอ้างอยู่" : "ตั้งรหัส+ชื่อตัวแทน ใช้ได้ทันทีทั้งระบบ — บันทึกแล้วระบบสร้างบัญชีล็อกอินให้อัตโนมัติ (ตั้งรหัสผ่านเองได้ หรือเว้นว่างให้ระบบสุ่ม — แสดงครั้งเดียว)"}</p>
             <form onSubmit={submitAgency} noValidate>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
@@ -2589,7 +2595,7 @@ export default function AdminPage() {
       <Modal show={!!userModal} onClose={() => setUserModal(null)}>
         {userModal && (
           <>
-            <h2>{userModal.id ? "✏️ แก้ไขผู้ใช้" : "➕ เพิ่มผู้ใช้ใหม่"}</h2>
+            <h2>{userModal.id ? <><IconPencil /> แก้ไขผู้ใช้</> : <><IconPlus /> เพิ่มผู้ใช้ใหม่</>}</h2>
             <p className="hint">{userModal.id ? "แก้ข้อมูลบัญชี/สิทธิ์ — เว้นช่องรหัสผ่านไว้ = คงรหัสเดิม" : "ตั้งบัญชีใหม่ให้เจ้าหน้าที่เข้าใช้ระบบคิวได้ทันที"}</p>
             <form onSubmit={submitUser} noValidate>
               <div className="form-grid" style={{ gridTemplateColumns: "1fr" }}>
@@ -2652,7 +2658,7 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
-            {confirmSet.note && <p className="hint" style={{ margin: "10px 0 0", color: "#b45309" }}>⚠️ {confirmSet.note}</p>}
+            {confirmSet.note && <p className="hint" style={{ margin: "10px 0 0", color: "#b45309" }}><IconWarn /> {confirmSet.note}</p>}
             <div className="modal-actions">
               <button className="btn btn-ghost btn-sm" type="button" onClick={() => setConfirmSet(null)}>ยกเลิก</button>
               <button className="btn btn-primary btn-sm" type="button" onClick={applyConfirmSet}>✓ ยืนยันและบันทึก</button>

@@ -8,6 +8,7 @@ import ThDatePicker from "@/components/ThDatePicker.js";
 import { api, toISO, phoneOk, emailOk, useEmbed, svcDays, fmtDays } from "@/lib/client.js";
 import { CONFIG } from "@/lib/config.js";
 import { useLang, fmtFull, tErr, pickSvc } from "@/lib/i18n.js";
+import { IconLock, IconWarn, IconPhone, IconMail, SvcIcon } from "@/components/Icon.js";
 
 // ข้อความหน้าจอง 3 ภาษา — สลับได้จากปุ่มบนหัวเว็บ (จำค่าไว้ในเครื่องของผู้ใช้)
 const T = {
@@ -38,7 +39,7 @@ const T = {
     consent: <>ข้าพเจ้ายินยอมให้ทางโรงพยาบาลเก็บและใช้ข้อมูลข้างต้น เพื่อการจัดคิวรับบริการและการติดต่อยืนยันนัดเท่านั้น ตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA){" "}</>,
     readMore: "อ่านต่อ", consentErr: "กรุณาติ๊กยินยอมการเก็บข้อมูลก่อนจอง",
     back: "← ย้อนกลับ", next: "ถัดไป", busy: "กำลังบันทึก…", confirm: "ยืนยันการจอง ✓", sendCb: "ส่งคำขอ ✓",
-    pdpaTitle: "🔒 การคุ้มครองข้อมูลส่วนบุคคล (PDPA)", pdpaSub: "รายละเอียดการเก็บและใช้ข้อมูลของท่านในระบบจองคิวนี้", pdpaClose: "เข้าใจแล้ว ปิดหน้าต่าง",
+    pdpaTitle: "การคุ้มครองข้อมูลส่วนบุคคล (PDPA)", pdpaSub: "รายละเอียดการเก็บและใช้ข้อมูลของท่านในระบบจองคิวนี้", pdpaClose: "เข้าใจแล้ว ปิดหน้าต่าง",
     pdpa: [
       ["1. ผู้ควบคุมข้อมูล: ", null],
       ["2. ข้อมูลที่เก็บ: ", "ชื่อ–นามสกุล เบอร์โทรศัพท์ อีเมล (ถ้ากรอก) สิทธิการรักษา บริการและวัน–เวลาที่เลือก และหมายเหตุที่ท่านแจ้ง"],
@@ -75,7 +76,7 @@ const T = {
     consent: <>I consent to the hospital collecting and using the information above solely for queue management and appointment confirmation, in accordance with the Personal Data Protection Act (PDPA).{" "}</>,
     readMore: "Read more", consentErr: "Please tick the consent box before booking",
     back: "← Back", next: "Next", busy: "Saving…", confirm: "Confirm booking ✓", sendCb: "Send request ✓",
-    pdpaTitle: "🔒 Personal Data Protection (PDPA)", pdpaSub: "How your data is collected and used in this booking system", pdpaClose: "I understand — close",
+    pdpaTitle: "Personal Data Protection (PDPA)", pdpaSub: "How your data is collected and used in this booking system", pdpaClose: "I understand — close",
     pdpa: [
       ["1. Data controller: ", null],
       ["2. Data collected: ", "full name, phone number, email (if provided), payment/coverage, chosen service, date and time, and any note you provide"],
@@ -112,7 +113,7 @@ const T = {
     consent: <>ကျွန်ုပ်သည် အထက်ပါ အချက်အလက်များကို အမှတ်စဉ် စီမံခန့်ခွဲမှုနှင့် ရက်ချိန်းအတည်ပြုခြင်းအတွက်သာ ဆေးရုံမှ စုဆောင်း အသုံးပြုခွင့်ပြုသည် — ပုဂ္ဂလိကအချက်အလက် ကာကွယ်ရေး ဥပဒေ (PDPA) အရ{" "}</>,
     readMore: "ပိုမိုဖတ်ရှိရန်", consentErr: "ကျေးဇူးပြု၍ သဘောတူညီမှုကို ရွေးချယ်ပါ",
     back: "← နောက်သို့", next: "ရှေ့သို့", busy: "သိမ်းဆည်းနေသည်…", confirm: "စာရင်းသွင်းမှု အတည်ပြုပါ ✓", sendCb: "တောင်းဆိုမှု ပို့ပါ ✓",
-    pdpaTitle: "🔒 ပုဂ္ဂလိကအချက်အလက် ကာကွယ်ရေး (PDPA)", pdpaSub: "ဤစာရင်းသွင်းမှုစနစ်တွင် သင့်အချက်အလက်ကို မည်သို့ စုဆောင်း၍ အသုံးပြုသည်ကို ဖော်ပြထားသည်", pdpaClose: "နားလည်ပါပြီ — ပိတ်ပါ",
+    pdpaTitle: "ပုဂ္ဂလိကအချက်အလက် ကာကွယ်ရေး (PDPA)", pdpaSub: "ဤစာရင်းသွင်းမှုစနစ်တွင် သင့်အချက်အလက်ကို မည်သို့ စုဆောင်း၍ အသုံးပြုသည်ကို ဖော်ပြထားသည်", pdpaClose: "နားလည်ပါပြီ — ပိတ်ပါ",
     pdpa: [
       ["၁။ အချက်အလက် စီမံခန့်ခွဲသူ: ", null],
       ["၂။ စုဆောင်းသော အချက်အလက်: ", "အမည်၊ ဖုန်းနံပါတ်၊ အီးမေးလ် (ဖြည့်ထားပါက)، ကုသခံခွင့် အမျိုးအစား၊ ရွေးချယ်သော ဝန်ဆောင်မှုနှင့် ရက်စွဲ–အချိန်၊ သင်ပေးထားသော မှတ်ချက်"],
@@ -307,7 +308,7 @@ export default function BookingPage() {
             );
           })}
         </div>
-        {errMsg && <div className="err-box" style={{ display: "block" }}>⚠️ {errMsg}</div>}
+        {errMsg && <div className="err-box" style={{ display: "block" }}><IconWarn /> {errMsg}</div>}
 
         {step === 1 && (
           <section className="wizard-card">
@@ -316,7 +317,7 @@ export default function BookingPage() {
             <div className="pick-grid">
               {services.filter((s) => s.active !== false).map((s) => (
                 <button type="button" key={s.id} className={"pick-card" + (s.id === serviceId ? " selected" : "")} onClick={() => pickService(s.id)}>
-                  <span className="pi">{s.icon}</span>
+                  <span className="pi"><SvcIcon icon={s.icon} /></span>
                   <span><h4>{svcName(s)}</h4><span className="d">{(pickSvc(lang, s.desc, s.descEn) || "").slice(0, 46)}…</span></span>
                 </button>
               ))}
@@ -386,7 +387,7 @@ export default function BookingPage() {
               <div className={"form-field" + (contactFieldInvalid ? " invalid" : "")}>
                 <label htmlFor="fContact">{L.fContact}</label>
                 <input className="form-input" id="fContact" type="text" placeholder={L.fContactPh} value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} onBlur={() => setTouched({ ...touched, contact: true })} />
-                <span className="hint" style={{ color: "var(--muted)" }}>📞✉️ {L.fContactHint}</span>
+                <span className="hint" style={{ color: "var(--muted)" }}><IconPhone /> <IconMail /> {L.fContactHint}</span>
                 <span className="err">{L.fContactErr}</span>
               </div>
               <div className="form-field">
@@ -424,7 +425,7 @@ export default function BookingPage() {
       {showPdpa && (
         <div className="modal-overlay show" onClick={(e) => { if (e.target === e.currentTarget) setShowPdpa(false); }}>
           <div className="modal-box pdpa-modal">
-            <h2>{L.pdpaTitle}</h2>
+            <h2><IconLock /> {L.pdpaTitle}</h2>
             <p className="hint">{L.pdpaSub}</p>
             <div className="pdpa-body">
               {L.pdpa.map(([h, body], i) => (

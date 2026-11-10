@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { CONFIG } from "@/lib/config.js";
+import { IconUser } from "@/components/Icon.js";
 import { useLang } from "@/lib/i18n.js";
 
 // หัวเว็บกลาง — admin ให้ส่ง me/onLogout มาแสดงชื่อผู้ใช้ + ปุ่มออกจากระบบแทนลิงก์ล็อกอิน
@@ -19,7 +20,7 @@ export default function SiteHeader({ activePage, me, onLogout }) {
         <nav className="header-nav">
           {activePage === "admin" ? (
             <>
-              <span className="whoami">👤 {me?.name || ""}</span>
+              <span className="whoami"><IconUser /> {me?.name || ""}</span>
               <a className="nav-link" href="#" onClick={onLogout}>ออกจากระบบ</a>
             </>
           ) : (
