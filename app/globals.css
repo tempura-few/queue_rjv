@@ -492,7 +492,8 @@ a { color: inherit; text-decoration: none; }
 .lightbox-info {
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   max-height: 90vh;
   background: #fff;
   padding: 18px 22px;
@@ -545,19 +546,23 @@ a { color: inherit; text-decoration: none; }
   .pdl-flow li { white-space: normal; }
 }
 
-/* ใน lightbox (แผงขวา): ลิสต์ไหลลง "ไม่เกิน 5 ข้อ" ต่อคอลัมน์ แล้วขยับไปคอลัมน์ใหม่ทางขวา (เลื่อนแนวนอนดูต่อ) */
-.lb-detail .pdl-target { font-size: 0.9rem; margin-bottom: 8px; }
+/* ใน lightbox (แผงขวา): ลิสต์ไหลลง "สูงเท่ากับความสูงของรูป" แล้วค่อยขยับไปคอลัมน์ใหม่ทางขวา */
+.lb-detail { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.lb-detail .pdl-target { font-size: 0.9rem; margin-bottom: 8px; flex-shrink: 0; }
+.lb-detail .pdl-prep { flex-shrink: 0; }
 .lb-grid {
-  display: grid;
-  grid-auto-flow: column;               /* เติมจากบนลงล่าง ครบ 10 แถวแล้วขยับไปคอลัมน์ขวา */
-  grid-template-rows: repeat(10, auto); /* สูงไม่เกิน 10 ข้อ ต่อคอลัมน์ */
-  grid-auto-columns: max-content;
+  display: block;               /* แทน display:flex ของ .pdl-items */
+  flex: 1;
+  min-height: 0;
+  columns: 250px;               /* ความกว้างรายคอลัมน์ */
+  column-fill: auto;            /* เติมเต็ม "ความสูงตามรูป" ก่อน แล้วขึ้นคอลัมน์ใหม่ */
   column-gap: 26px;
-  row-gap: 4px;
   overflow-x: auto;
-  padding-bottom: 4px;
+  overflow-y: hidden;
+  margin: 0;
+  padding: 0 0 4px 0;
 }
-.lb-grid li { color: var(--text); font-size: 0.88rem; gap: 8px; white-space: nowrap; }
+.lb-grid li { color: var(--text); font-size: 0.88rem; gap: 8px; white-space: nowrap; break-inside: avoid; }
 .lb-grid .pdl-check { color: var(--ok); }
 .pdl-prep {
   margin-top: 12px;
@@ -571,7 +576,7 @@ a { color: inherit; text-decoration: none; }
 }
 /* จอแคบ: กลับเป็นลิสต์แนวตั้งธรรมดา (เลื่อนขึ้น-ลง แทนแนวนอน) */
 @media (max-width: 720px) {
-  .lb-grid { grid-auto-flow: row; grid-template-rows: none; overflow-x: visible; }
+  .lb-grid { columns: 1; column-fill: balance; overflow: visible; flex: none; }
   .lb-grid li { white-space: normal; }
 }
 
