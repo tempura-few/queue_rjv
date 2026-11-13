@@ -498,7 +498,7 @@ a { color: inherit; text-decoration: none; }
 .lightbox-info h3 { margin: 0 0 6px; font-size: 1.05rem; color: var(--ink); }
 .lightbox-info p { margin: 0; white-space: pre-line; font-size: 0.92rem; line-height: 1.6; color: var(--text); }
 
-/* รายละเอียดเพิ่มเติมบนการ์ดแพ็กเกจ (แสดงเมื่อกรอกไว้) */
+/* รายละเอียดเพิ่มเติมบนการ์ดแพ็กเกจ (แสดงเมื่อกรอกไว้) — fallback ข้อความธรรมดา */
 .pkg-detail {
   margin: 6px 0 0;
   color: var(--muted);
@@ -506,13 +506,37 @@ a { color: inherit; text-decoration: none; }
   line-height: 1.55;
   white-space: pre-line;
 }
-/* รายละเอียดยาว (ลิสต์รายการตรวจเต็มตามเว็บ) — พับไว้บนการ์ด/กล่องสรุป ดูครบเมื่อกดรูปใหญ่ (lightbox) */
 .pkg-card .pkg-detail, .sel-summary .pkg-detail {
   display: -webkit-box;
   -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ลิสต์รายการตรวจ (จัดรูปแบบสวย): กลุ่มเป้าหมาย + ✓ ต่อข้อ + "+ อีก N รายการ" */
+.pkg-detail-list { margin: 8px 0 0; }
+.pdl-target { margin: 0 0 5px; font-weight: 700; color: var(--ink); font-size: 0.8rem; }
+.pdl-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.pdl-items li { display: flex; gap: 7px; align-items: flex-start; color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
+.pdl-check { color: var(--ok); font-weight: 800; flex-shrink: 0; line-height: 1.5; }
+.pdl-more { margin: 5px 0 0; color: var(--primary); font-weight: 700; font-size: 0.76rem; }
+
+/* ใน lightbox: ลิสต์ครบทุกข้อ 2 คอลัมน์ + กล่องเตือนการเตรียมตัว */
+.lb-detail .pdl-target { font-size: 0.9rem; margin-bottom: 8px; }
+.lb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
+.lb-grid li { color: var(--text); font-size: 0.88rem; gap: 8px; }
+.lb-grid .pdl-check { color: var(--ok); }
+.pdl-prep {
+  margin-top: 12px;
+  padding: 9px 13px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+@media (max-width: 640px) { .lb-grid { grid-template-columns: 1fr; } }
 
 /* สรุปแพ็กเกจที่เลือก — แสดงค้างไว้ในขั้นเลือกวัน–เวลา และขั้นข้อมูลผู้จอง */
 .sel-summary-wrap { margin: 0 0 18px; }

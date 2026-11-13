@@ -10,6 +10,51 @@ import { CONFIG } from "@/lib/config.js";
 import { useLang, fmtFull, tErr, pickSvc } from "@/lib/i18n.js";
 import { IconLock, IconWarn, IconPhone, IconMail, SvcIcon, ZoomIcon } from "@/components/Icon.js";
 
+// ---------- จัดรูปแบบ "รายละเอียดแพ็กเกจ" (ลิสต์รายการตรวจตามเว็บโรงพยาบาล) ----------
+// โครงสร้างข้อความ: บรรทัดแรก = กลุ่มเป้าหมาย · กลาง = รายการเรียงเลข "1. …" · บรรทัดสุดท้าย = การเตรียมตัว
+// แยกออกมาเพื่อแสดงเป็นลิสต์ ✓ สวย ๆ แทนข้อความธรรมดา (ถ้าไม่ใช่ลิสต์ แสดงข้อความตามเดิม)
+function parseDetail(detail) {
+  const lines = String(detail || "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const items = lines.filter((l) => /^\d+[.)]\s/.test(l)).map((l) => l.replace(/^\d+[.)]\s*/, ""));
+  if (!items.length) return { text: lines.join("\n") };
+  return {
+    target: !/^\d+[.)]\s/.test(lines[0]) ? lines[0] : null,
+    items,
+    prep: !/^\d+[.)]\s/.test(lines[lines.length - 1]) ? lines[lines.length - 1] : null,
+  };
+}
+
+// บนการ์ด/กล่องสรุป: เป้าหมาย + ลิสต์ ✓ 5 ข้อแรก + "+ อีก N รายการ" (ดูครบใน lightbox)
+function DetailPreview({ detail, moreLabel }) {
+  const d = parseDetail(detail);
+  if (d.text) return <p className="pkg-detail">{d.text}</p>;
+  const shown = d.items.slice(0, 5);
+  return (
+    <div className="pkg-detail-list">
+      {d.target && <p className="pdl-target">{d.target}</p>}
+      <ul className="pdl-items">
+        {shown.map((it) => <li key={it}><span className="pdl-check">✓</span><span>{it}</span></li>)}
+      </ul>
+      {d.items.length > shown.length && <p className="pdl-more">{moreLabel(d.items.length - shown.length)}</p>}
+    </div>
+  );
+}
+
+// ใน lightbox: ลิสต์ครบทุกข้อเป็นกริด 2 คอลัมน์ + กล่องเตือนการเตรียมตัวก่อนตรวจ
+function DetailFull({ detail, prepTitle }) {
+  const d = parseDetail(detail);
+  if (d.text) return <p className="pkg-detail">{d.text}</p>;
+  return (
+    <div className="lb-detail">
+      {d.target && <p className="pdl-target">{d.target}</p>}
+      <ul className="pdl-items lb-grid">
+        {d.items.map((it) => <li key={it}><span className="pdl-check">✓</span><span>{it}</span></li>)}
+      </ul>
+      {d.prep && <div className="pdl-prep"><b>{prepTitle}: </b>{d.prep}</div>}
+    </div>
+  );
+}
+
 // ข้อความหน้าจอง 3 ภาษา — สลับได้จากปุ่มบนหัวเว็บ (จำค่าไว้ในเครื่องของผู้ใช้)
 const T = {
   th: {
@@ -21,6 +66,7 @@ const T = {
     subSlot: "กรอกข้อมูล 3 ขั้นตอน ใช้เวลาไม่ถึง 1 นาที",
     s1h2: "เลือกบริการที่ต้องการ", s1hint: "เลือกหมวดบริการ แล้วเลือกรายการที่ต้องการจอง", itemLabel: "รายการ",
     catAll: "ทั้งหมด", pkgCount: (n) => `รวม ${n} รายการ`, zoomHint: "ดูรูปใหญ่", select: "เลือก",
+    moreItems: (n) => `+ อีก ${n} รายการ (กดดูรูปใหญ่)`, prepTitle: "การเตรียมตัวก่อนตรวจ",
     s2h2: "เลือกวันและเวลา", s2hint: "เลือกวันที่สะดวก แล้วเลือกช่วงเวลาที่ยังว่าง", dateLabel: "เลือกวันนัด", selPkg: "แพ็กเกจที่เลือก",
     datePicked: "วันที่เลือก: ", dateRange: "เลือกได้ตั้งแต่วันนี้จนถึงอีก ",
     dateRangeSuffix: " วันข้างหน้า",
@@ -59,6 +105,7 @@ const T = {
     subSlot: "3 quick steps — takes less than a minute",
     s1h2: "Choose a service", s1hint: "Pick a service category, then choose the item you want", itemLabel: "Item",
     catAll: "All", pkgCount: (n) => `${n} items included`, zoomHint: "View larger", select: "Select",
+    moreItems: (n) => `+ ${n} more items (tap to view)`, prepTitle: "Preparation",
     s2h2: "Choose date & time", s2hint: "Pick a convenient date, then choose an available time", dateLabel: "Appointment date", selPkg: "Selected package",
     datePicked: "Selected: ", dateRange: "You can book from today up to ",
     dateRangeSuffix: " days ahead",
@@ -97,6 +144,7 @@ const T = {
     subSlot: "အဆင့် ၃ ဆင့်ဖြင့် ဖြည့်ပါ — ၁ မိနစ်လည်း မကျော်ပါ",
     s1h2: "လိုအပ်သော ဝန်ဆောင်မှုကို ရွေးပါ", s1hint: "ဝန်ဆောင်မှု အမျိုးအစား ရွေးပြီးလျှင် စာရင်းသွင်းလိုသော အကြောင်းအရာကို ရွေးပါ", itemLabel: "အကြောင်းအရာ",
     catAll: "အားလုံး", pkgCount: (n) => `${n} များ ပါဝင်သည်`, zoomHint: "ပုံကြီးကြည့်ရန်", select: "ရွေးရန်",
+    moreItems: (n) => `+ နောက်ထပ် ${n} များ`, prepTitle: "ပြင်ဆင်ရန်",
     s2h2: "ရက်စွဲနှင့် အချိန် ရွေးပါ", s2hint: "သင့်ကို အဆင်ပြေသော ရက်စွဲကို ရွေးပြီး ကျန်ရှိနေသော အချိန်ကို ရွေးပါ", dateLabel: "သွားရောက်မည့် ရက်စွဲ", selPkg: "ရွေးထားသော ပက်ကေ့ချ်",
     datePicked: "ရွေးချယ်ထားသော ရက်စွဲ: ", dateRange: "ယနေ့မှစ၍ ",
     dateRangeSuffix: " ရက်အတွင်း ရွေးနိုင်သည်",
@@ -358,7 +406,7 @@ export default function BookingPage() {
           <span className="pkg-tag">{svcName(service)}</span>
           <h4>{sumName}</h4>
           {sumPrice != null && Number(sumPrice) > 0 && <span className="pkg-price">฿{Number(sumPrice).toLocaleString("th-TH")}</span>}
-          {sumDetail && <p className="pkg-detail">{sumDetail}</p>}
+          {sumDetail && <DetailPreview detail={sumDetail} moreLabel={L.moreItems} />}
         </div>
       </div>
     </div>
@@ -430,7 +478,7 @@ export default function BookingPage() {
                       <span className="pkg-tag">{c.svcName}</span>
                       <h4>{c.name}</h4>
                       {c.price != null && Number(c.price) > 0 && <span className="pkg-price">฿{Number(c.price).toLocaleString("th-TH")}</span>}
-                      {c.detail && <p className="pkg-detail">{c.detail}</p>}
+                      {c.detail && <DetailPreview detail={c.detail} moreLabel={L.moreItems} />}
                     </div>
                     <div className="pkg-foot">
                       <button type="button" className="pkg-select"
@@ -539,7 +587,7 @@ export default function BookingPage() {
             {(lightbox.name || lightbox.detail) && (
               <div className="lightbox-info">
                 {lightbox.name && <h3>{lightbox.name}</h3>}
-                {lightbox.detail && <p>{lightbox.detail}</p>}
+                {lightbox.detail && <DetailFull detail={lightbox.detail} prepTitle={L.prepTitle} />}
               </div>
             )}
           </div>
