@@ -55,6 +55,21 @@ function DetailFull({ detail, prepTitle }) {
   );
 }
 
+// ในกล่อง "แพ็กเกจที่เลือก" (ขั้น 2-3): ลิสต์ครบทุกข้อ — คอลัมน์ละไม่เกิน 5 ข้อ แล้วขยายไปข้าง ๆ (เหมือน lightbox)
+function DetailFlow({ detail, prepTitle }) {
+  const d = parseDetail(detail);
+  if (d.text) return <p className="pkg-detail">{d.text}</p>;
+  return (
+    <div className="pkg-detail-list">
+      {d.target && <p className="pdl-target">{d.target}</p>}
+      <ul className="pdl-items pdl-flow">
+        {d.items.map((it) => <li key={it}><span className="pdl-check">✓</span><span>{it}</span></li>)}
+      </ul>
+      {d.prep && <div className="pdl-prep"><b>{prepTitle}: </b>{d.prep}</div>}
+    </div>
+  );
+}
+
 // ข้อความหน้าจอง 3 ภาษา — สลับได้จากปุ่มบนหัวเว็บ (จำค่าไว้ในเครื่องของผู้ใช้)
 const T = {
   th: {
@@ -406,7 +421,7 @@ export default function BookingPage() {
           <span className="pkg-tag">{svcName(service)}</span>
           <h4>{sumName}</h4>
           {sumPrice != null && Number(sumPrice) > 0 && <span className="pkg-price">฿{Number(sumPrice).toLocaleString("th-TH")}</span>}
-          {sumDetail && <DetailPreview detail={sumDetail} moreLabel={L.moreItems} />}
+          {sumDetail && <DetailFlow detail={sumDetail} prepTitle={L.prepTitle} />}
         </div>
       </div>
     </div>
