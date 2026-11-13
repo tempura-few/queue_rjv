@@ -475,7 +475,7 @@ a { color: inherit; text-decoration: none; }
 .lightbox-box {
   display: flex;
   align-items: stretch;
-  max-width: min(1100px, 94vw);
+  max-width: min(1280px, 94vw);
   max-height: 90vh;
   overflow: hidden;
   border-radius: 14px;
@@ -484,7 +484,7 @@ a { color: inherit; text-decoration: none; }
 }
 .lightbox-box img {
   width: auto; height: auto;
-  max-width: 55%;
+  max-width: 45%;
   max-height: 90vh;
   object-fit: contain;
   display: block;
@@ -528,10 +528,19 @@ a { color: inherit; text-decoration: none; }
 .pdl-check { color: var(--ok); font-weight: 800; flex-shrink: 0; line-height: 1.5; }
 .pdl-more { margin: 5px 0 0; color: var(--primary); font-weight: 700; font-size: 0.76rem; }
 
-/* ใน lightbox (แผงขวา): ลิสต์ครบทุกข้อ คอลัมน์เดียว scroll ได้ + กล่องเตือนการเตรียมตัว */
+/* ใน lightbox (แผงขวา): ลิสต์ไหลลง "ไม่เกิน 5 ข้อ" ต่อคอลัมน์ แล้วขยับไปคอลัมน์ใหม่ทางขวา (เลื่อนแนวนอนดูต่อ) */
 .lb-detail .pdl-target { font-size: 0.9rem; margin-bottom: 8px; }
-.lb-grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
-.lb-grid li { color: var(--text); font-size: 0.88rem; gap: 8px; }
+.lb-grid {
+  display: grid;
+  grid-auto-flow: column;               /* เติมจากบนลงล่าง ครบ 5 แถวแล้วขยับไปคอลัมน์ขวา */
+  grid-template-rows: repeat(5, auto);  /* สูงไม่เกิน 5 ข้อ ต่อคอลัมน์ */
+  grid-auto-columns: max-content;
+  column-gap: 26px;
+  row-gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.lb-grid li { color: var(--text); font-size: 0.88rem; gap: 8px; white-space: nowrap; }
 .lb-grid .pdl-check { color: var(--ok); }
 .pdl-prep {
   margin-top: 12px;
@@ -542,6 +551,11 @@ a { color: inherit; text-decoration: none; }
   color: #065f46;
   font-size: 0.85rem;
   line-height: 1.55;
+}
+/* จอแคบ: กลับเป็นลิสต์แนวตั้งธรรมดา (เลื่อนขึ้น-ลง แทนแนวนอน) */
+@media (max-width: 720px) {
+  .lb-grid { grid-auto-flow: row; grid-template-rows: none; overflow-x: visible; }
+  .lb-grid li { white-space: normal; }
 }
 
 /* สรุปแพ็กเกจที่เลือก — แสดงค้างไว้ในขั้นเลือกวัน–เวลา และขั้นข้อมูลผู้จอง */
