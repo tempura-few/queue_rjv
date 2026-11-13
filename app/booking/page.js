@@ -64,7 +64,7 @@ const T = {
     h1Callback: "ขอให้โรงพยาบาลติดต่อกลับ", h1Slot: "จองคิวล่วงหน้า",
     subCallback: "เลือกบริการ กรอกข้อมูลติดต่อ แล้วรอเจ้าหน้าที่โทรกลับนัดวัน–เวลาให้",
     subSlot: "กรอกข้อมูล 3 ขั้นตอน ใช้เวลาไม่ถึง 1 นาที",
-    s1h2: "เลือกบริการที่ต้องการ", s1hint: "เลือกหมวดบริการ แล้วเลือกรายการที่ต้องการจอง", itemLabel: "รายการ",
+    s1h2: "เลือกบริการที่ต้องการ", s1hint: "กดการ์ดเพื่อดูรายละเอียด · กดปุ่ม \"เลือก\" เพื่อจองคิว", itemLabel: "รายการ",
     catAll: "ทั้งหมด", pkgCount: (n) => `รวม ${n} รายการ`, zoomHint: "ดูรูปใหญ่", select: "เลือก",
     moreItems: (n) => `+ อีก ${n} รายการ (กดดูรูปใหญ่)`, prepTitle: "การเตรียมตัวก่อนตรวจ",
     s2h2: "เลือกวันและเวลา", s2hint: "เลือกวันที่สะดวก แล้วเลือกช่วงเวลาที่ยังว่าง", dateLabel: "เลือกวันนัด", selPkg: "แพ็กเกจที่เลือก",
@@ -103,7 +103,7 @@ const T = {
     h1Callback: "Request a call back", h1Slot: "Book an appointment",
     subCallback: "Choose a service and leave your contact details — our staff will call you back to arrange a date and time",
     subSlot: "3 quick steps — takes less than a minute",
-    s1h2: "Choose a service", s1hint: "Pick a service category, then choose the item you want", itemLabel: "Item",
+    s1h2: "Choose a service", s1hint: "Tap a card to view details · press \"Select\" to book", itemLabel: "Item",
     catAll: "All", pkgCount: (n) => `${n} items included`, zoomHint: "View larger", select: "Select",
     moreItems: (n) => `+ ${n} more items (tap to view)`, prepTitle: "Preparation",
     s2h2: "Choose date & time", s2hint: "Pick a convenient date, then choose an available time", dateLabel: "Appointment date", selPkg: "Selected package",
@@ -142,7 +142,7 @@ const T = {
     h1Callback: "ဆေးရုံမှ ပြန်ခေါ်ရန် တောင်းဆိုပါ", h1Slot: "ကြိုတင်အချိန်ယူပါ",
     subCallback: "ဝန်ဆောင်မှု ရွေးပြီး ဆက်သွယ်ရန် အချက်အလက် ဖြည့်ပါ — ဝန်ထမ်းမှ ပြန်ခေါ်၍ ရက်စွဲ–အချိန် သတ်မှတ်ပေးမည်",
     subSlot: "အဆင့် ၃ ဆင့်ဖြင့် ဖြည့်ပါ — ၁ မိနစ်လည်း မကျော်ပါ",
-    s1h2: "လိုအပ်သော ဝန်ဆောင်မှုကို ရွေးပါ", s1hint: "ဝန်ဆောင်မှု အမျိုးအစား ရွေးပြီးလျှင် စာရင်းသွင်းလိုသော အကြောင်းအရာကို ရွေးပါ", itemLabel: "အကြောင်းအရာ",
+    s1h2: "လိုအပ်သော ဝန်ဆောင်မှုကို ရွေးပါ", s1hint: "ကတ်ကို နှိပ်၍ အသေးစိတ်ကြည့်ပါ · \"ရွေးရန်\" ခလုတ်ဖြင့် စာရင်းသွင်းပါ", itemLabel: "အကြောင်းအရာ",
     catAll: "အားလုံး", pkgCount: (n) => `${n} များ ပါဝင်သည်`, zoomHint: "ပုံကြီးကြည့်ရန်", select: "ရွေးရန်",
     moreItems: (n) => `+ နောက်ထပ် ${n} များ`, prepTitle: "ပြင်ဆင်ရန်",
     s2h2: "ရက်စွဲနှင့် အချိန် ရွေးပါ", s2hint: "သင့်ကို အဆင်ပြေသော ရက်စွဲကို ရွေးပြီး ကျန်ရှိနေသော အချိန်ကို ရွေးပါ", dateLabel: "သွားရောက်မည့် ရက်စွဲ", selPkg: "ရွေးထားသော ပက်ကေ့ချ်",
@@ -453,23 +453,26 @@ export default function BookingPage() {
                 const imgSrc = (c.image && c.image.startsWith("/"))
                   ? c.image
                   : (c.itemId != null ? `/api/service-image/${c.serviceId}?item=${c.itemId}` : `/api/service-image/${c.serviceId}`);
-                // คลิกการ์ดหรือปุ่ม "เลือก" = เลือกรายการนี้แล้วไปขั้นถัดไปเลย (ปุ่มแว่นขยาย = ดูรูปใหญ่)
+                // กดการ์ด = ดูรูปใหญ่+รายละเอียด (เหมือนปุ่มแว่นขยาย) · กดปุ่ม "เลือก" = เลือกแล้วไปขั้นถัดไป
+                // (การ์ดไม่มีรูป — กดการ์ดเลือกไปต่อแทน ไม่ให้กดแล้วเงียบ)
                 const doSelect = () => {
                   if (c.itemId != null) pickItem(c.serviceId, c.itemId); else pickService(c.serviceId);
                   setStep(2); window.scrollTo({ top: 0, behavior: "smooth" });
                 };
+                const openDetail = () => setLightbox({ src: imgSrc, name: c.name, detail: c.detail });
+                const onCard = c.hasImage ? openDetail : doSelect;
                 return (
                   <div key={c.key} role="button" tabIndex={0}
                     className="pkg-card"
-                    onClick={doSelect}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); doSelect(); } }}>
+                    onClick={onCard}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCard(); } }}>
                     <div className="pkg-media">
                       {c.hasImage
                         ? <img src={imgSrc} alt={c.name} />
                         : <span className="pkg-media-fallback"><SvcIcon icon={c.icon} size="3em" /></span>}
                       {c.hasImage && (
                         <button type="button" className="pkg-zoom" title={L.zoomHint} aria-label={L.zoomHint}
-                          onClick={(e) => { e.stopPropagation(); setLightbox({ src: imgSrc, name: c.name, detail: c.detail }); }}>
+                          onClick={(e) => { e.stopPropagation(); openDetail(); }}>
                           <ZoomIcon />
                         </button>
                       )}
