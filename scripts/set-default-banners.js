@@ -16,6 +16,7 @@
 //   ถ้าเจ้าหน้าที่ใส่รูปเองแล้วไม่อยากโดนทับ อย่ารันซ้ำ หรือเข้าหลังบ้านตั้งเองแทน
 // ============================================================
 const { bannerFor, itemBanner } = require("../lib/banner.js");
+const { hcItems } = require("../lib/hcPackages.js");
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const USER = process.env.ADMIN_USER || "admin";
@@ -28,25 +29,6 @@ const CATS = {
   beauty: "ความงาม",
   vaccine: "วัคซีน",
   tcm: "แพทย์ทางเลือก",
-};
-
-// ตรวจสุขภาพ: รายการย่อยใช้ "รูปโปรโมทจริง" + รายละเอียด (ตรงค่า seed)
-const HC_ITEM_EXTRAS = {
-  "hc-basic": {
-    image: "/pkg-images/healthcheck-standard.jpg",
-    detail: "ตรวจเลือด 10 รายการ · เอกซเรย์ปอด · ตรวจปัสสาวะ · ตรวจร่างกายโดยแพทย์\nงดอาหาร 8 ชม. ก่อนตรวจ · รู้ผลภายใน 1 วัน",
-    detailEn: "10 blood tests · Chest X-ray · Urine test · Physical examination\nFast 8 hrs before check-up · Results within 1 day",
-  },
-  "hc-plus": {
-    image: "/pkg-images/healthcheck-standard.jpg",
-    detail: "ตรวจเลือด 20 รายการ · เอกซเรย์ปอด · อัลตราซาวด์ช่องท้อง · ตรวจคลื่นไฟฟ้าหัวใจ\nงดอาหาร 8 ชม. ก่อนตรวจ · รู้ผลภายใน 1 วัน",
-    detailEn: "20 blood tests · Chest X-ray · Abdominal ultrasound · ECG\nFast 8 hrs before check-up · Results within 1 day",
-  },
-  "hc-senior": {
-    image: "/pkg-images/healthcheck-standard.jpg",
-    detail: "ตรวจเลือด 26 รายการ · ตรวจคัดกรองมะเร็ง · ตรวจหัวใจ · วัดความหนาแน่นกระดูก\nเหมาะสำหรับผู้สูงอายุ 50 ปีขึ้นไป · แพทย์สรุปผลให้",
-    detailEn: "26 blood tests · Cancer screening · Heart check · Bone density scan\nFor ages 50+ · Physician review included",
-  },
 };
 
 (async () => {
@@ -65,14 +47,11 @@ const HC_ITEM_EXTRAS = {
     if (CATS[s.id]) { s.category = CATS[s.id]; catSet++; }
     const b = bannerFor(s.id);
     if (b) { s.image = b; svcImg++; } // บริการที่เพิ่มเอง (ไม่รู้จัก) จะไม่ถูกแตะ
+    // ตรวจสุขภาพ: รายการย่อย = แพ็กเกจจริงตามเว็บโรงพยาบาล (Standard→Diamond)
+    if (s.id === "healthcheck") { s.items = hcItems(); itemImg += s.items.length; continue; }
     if (Array.isArray(s.items)) {
       for (const it of s.items) {
         delete it.hasImage;
-        const ex = s.id === "healthcheck" ? HC_ITEM_EXTRAS[it.id] : null;
-        if (ex) {
-          it.image = ex.image; it.detail = ex.detail; it.detailEn = ex.detailEn; itemImg++;
-          continue;
-        }
         // รายการอื่น: แบนเนอร์กราฟิก — ป้ายชื่อตัดคำวงเล็บท้ายออก (เช่น "(ต่อเข็ม)") ให้กระชับ
         const label = String(it.name || "").replace(/\s*\(.*?\)\s*$/g, "").trim() || it.name;
         const ib = itemBanner(s.id, label);
