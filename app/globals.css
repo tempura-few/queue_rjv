@@ -210,6 +210,7 @@ a { color: inherit; text-decoration: none; }
   gap: 8px;
   transition: all 0.18s ease;
   box-shadow: var(--shadow);
+  overflow: hidden;
 }
 .service-card:hover {
   border-color: var(--primary);
@@ -233,6 +234,17 @@ a { color: inherit; text-decoration: none; }
   font-weight: 700;
   font-size: 0.95rem;
 }
+/* แบนเนอร์รูปบนการ์ดบริการ (หน้าแรก) — ล้นออกถึงขอบการ์ด (padding 22px) */
+.svc-media {
+  position: relative;
+  margin: -22px -22px 6px;
+  background: linear-gradient(135deg, var(--primary-soft), var(--primary-softer));
+  overflow: hidden;
+  flex-shrink: 0;
+}
+/* โชว์ภาพเต็มตามอัตราส่วนจริง (ไม่ครอป) */
+.svc-media img { width: 100%; height: auto; display: block; }
+.svc-media-fallback { display: grid; place-items: center; height: 160px; font-size: 2.8em; line-height: 1; opacity: 0.9; }
 
 /* ---------- ขั้นตอน (หน้าแรก) ---------- */
 .steps-row {
@@ -388,6 +400,196 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
 .item-price { color: var(--primary-dark); font-weight: 700; margin-top: 6px; }
+
+/* ---------- การ์ดแพ็กเกจแบบมีรูป (หน้าจอง ขั้น 1) ---------- */
+.cat-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
+.cat-tab {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.cat-tab:hover { border-color: var(--primary); color: var(--primary-dark); }
+.cat-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.pkg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  align-items: stretch; /* การ์ดในแถวเดียวกันสูงเท่ากัน */
+}
+.pkg-card {
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow);
+  outline: none;
+}
+.pkg-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+.pkg-card:focus-visible { box-shadow: 0 0 0 3px var(--primary-soft); border-color: var(--primary); }
+.pkg-media {
+  position: relative;
+  background: linear-gradient(135deg, var(--primary-soft), var(--primary-softer));
+  overflow: hidden;
+  flex-shrink: 0;
+}
+/* แสดงรูป "เต็ม" ตามอัตราส่วนจริงของรูป (ไม่ครอปเป็นแถบบาง) */
+.pkg-media img { width: 100%; height: auto; display: block; }
+.pkg-media-fallback { display: grid; place-items: center; height: 220px; font-size: 3.2em; line-height: 1; opacity: 0.9; }
+/* ปุ่มแว่นขยายมุมรูป — กดเพื่อเปิดดูภาพใหญ่ (lightbox) */
+.pkg-zoom {
+  position: absolute; top: 10px; right: 10px;
+  z-index: 2;
+  width: 34px; height: 34px;
+  border: none; border-radius: 50%;
+  background: rgba(20, 30, 50, 0.55);
+  color: #fff;
+  display: grid; place-items: center;
+  cursor: pointer;
+  backdrop-filter: blur(2px);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.pkg-zoom:hover { background: rgba(20, 30, 50, 0.8); transform: scale(1.08); }
+.pkg-zoom svg { width: 18px; height: 18px; }
+
+/* Lightbox — กดรูปแล้วดูภาพใหญ่เต็มจอ */
+.lightbox-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10, 15, 25, 0.9);
+  display: grid; place-items: center;
+  padding: 28px;
+  cursor: zoom-out;
+}
+.lightbox-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: min(94vw, 920px);
+  max-height: 92vh;
+  overflow: auto;
+  cursor: default;
+}
+.lightbox-box img {
+  max-width: 100%;
+  max-height: 68vh;
+  width: auto; height: auto;
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+}
+.lightbox-info {
+  background: rgba(255, 255, 255, 0.97);
+  border-radius: 12px;
+  padding: 14px 20px;
+  max-width: 100%;
+  text-align: left;
+}
+.lightbox-info h3 { margin: 0 0 6px; font-size: 1.05rem; color: var(--ink); }
+.lightbox-info p { margin: 0; white-space: pre-line; font-size: 0.92rem; line-height: 1.6; color: var(--text); }
+
+/* รายละเอียดเพิ่มเติมบนการ์ดแพ็กเกจ (แสดงเมื่อกรอกไว้) */
+.pkg-detail {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+/* สรุปแพ็กเกจที่เลือก — แสดงค้างไว้ในขั้นเลือกวัน–เวลา และขั้นข้อมูลผู้จอง */
+.sel-summary-wrap { margin: 0 0 18px; }
+.sel-summary-label { display: block; font-weight: 700; color: var(--ink); margin-bottom: 8px; font-size: 0.95rem; }
+.sel-summary {
+  display: flex; gap: 14px; align-items: flex-start;
+  border: 1.5px solid var(--primary-soft);
+  border-radius: 14px;
+  background: var(--primary-softer);
+  padding: 12px;
+}
+.sel-summary-media {
+  width: 92px; height: 92px; flex-shrink: 0;
+  border-radius: 10px; overflow: hidden;
+  background: linear-gradient(135deg, var(--primary-soft), var(--primary-softer));
+  display: grid; place-items: center;
+}
+.sel-summary-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sel-summary-fb { color: var(--muted); }
+.sel-summary-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sel-summary-body h4 { margin: 0; font-size: 1.02rem; color: var(--ink); }
+.lightbox-close {
+  position: absolute; top: 18px; right: 22px;
+  width: 44px; height: 44px;
+  border: none; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff; font-size: 1.3rem; line-height: 1;
+  cursor: pointer;
+  display: grid; place-items: center;
+}
+.lightbox-close:hover { background: rgba(255, 255, 255, 0.28); }
+.pkg-body { padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 4px; }
+.pkg-tag {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  border-radius: 999px;
+  padding: 2px 10px;
+  letter-spacing: 0.01em;
+}
+.pkg-body h4 { margin: 0; font-size: 1.08rem; color: var(--ink); }
+.pkg-sub { color: var(--muted); font-size: 0.85rem; }
+.pkg-price { color: var(--primary-dark); font-weight: 800; font-size: 1.12rem; margin-top: 2px; }
+/* ปุ่ม "เลือก" ท้ายการ์ด — margin-top:auto ดันให้ชิดล่างเมื่อการ์ดถูกยืดให้สูงเท่ากัน */
+.pkg-foot { padding: 0 16px 16px; margin-top: auto; }
+.pkg-select {
+  width: 100%;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--primary);
+  background: #fff;
+  color: var(--primary-dark);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.pkg-select:hover { background: var(--primary-softer); }
+.pkg-items { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.pkg-item {
+  width: 100%;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  background: transparent;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  padding: 7px 9px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.9rem;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.pkg-item:hover { background: var(--primary-softer); }
+.pkg-item.selected { background: var(--primary-softer); border-color: var(--primary-soft); }
+.pkg-check { color: var(--ok); display: inline-flex; flex-shrink: 0; font-size: 1rem; }
+.pkg-item.selected .pkg-check { color: var(--primary); }
+.pkg-item-name { flex: 1; }
+.pkg-item-price { color: var(--primary-dark); font-weight: 700; white-space: nowrap; font-size: 0.85rem; }
 
 /* เลือกวันและเวลา */
 .date-pick { margin-bottom: 18px; }
@@ -1039,7 +1241,7 @@ table.booking-table { width: 100%; border-collapse: collapse; min-width: 760px; 
 }
 
 /* ---------- จัดการบริการ (แท็บหลังบ้าน) ---------- */
-.modal-box.svc-editor { max-width: 600px; }
+.modal-box.svc-editor { max-width: min(920px, 94vw); }
 .icon-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .icon-chip {
   font-size: 1.15rem;
@@ -1052,6 +1254,23 @@ table.booking-table { width: 100%; border-collapse: collapse; min-width: 760px; 
 }
 .icon-chip:hover { border-color: var(--primary); }
 .icon-chip.sel { border-color: var(--primary); background: var(--primary-soft); }
+
+/* ตัวเลือกรูปบริการในโมดัลหลังบ้าน */
+.svc-img-row { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.svc-img-preview {
+  width: 150px;
+  height: 100px;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  background: var(--primary-softer);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.svc-img-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.svc-img-empty { color: var(--muted); }
+.svc-img-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 /* ชิปเลือกวันให้บริการ (จ อ พ พฤ ศ ส อา) ในโมดัลแก้ไขบริการ */
 .day-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .day-chip {
@@ -1070,12 +1289,58 @@ table.booking-table { width: 100%; border-collapse: collapse; min-width: 760px; 
 .day-chip.sel { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-dark); }
 .svc-item-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 36px;
+  grid-template-columns: 1fr 1fr 36px; /* ค่าเริ่มต้น: ชื่อ | EN | ลบ (ตารางสิทธิการรักษา/ช่องทาง) */
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
 }
+.svc-item-row.has-img { grid-template-columns: 56px 1fr 1fr 36px; } /* แถวรายการบริการที่มีคอลัมน์รูป */
+.svc-item-row.one-field { grid-template-columns: 1fr 36px; } /* แถวที่มีช่องเดียว + ปุ่มลบ (ตารางช่องทางผู้ป่วย) */
 .svc-item-row .si-en { font-size: 0.9rem; }
+/* ช่องรูปรายการย่อยในโมดัลหลังบ้าน */
+.si-img-wrap { position: relative; width: 56px; height: 40px; }
+.si-img {
+  display: grid; place-items: center;
+  width: 56px; height: 40px;
+  border: 1.5px dashed var(--line);
+  border-radius: 8px;
+  background: var(--primary-softer);
+  overflow: hidden;
+  cursor: pointer;
+}
+.si-img:hover { border-color: var(--primary); }
+.si-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.si-img-ph { color: var(--muted); display: grid; place-items: center; }
+.si-img-clear {
+  position: absolute; top: -7px; right: -7px;
+  width: 18px; height: 18px;
+  border: none; border-radius: 50%;
+  background: var(--danger); color: #fff;
+  font-size: 0.65rem; line-height: 1;
+  cursor: pointer;
+  display: grid; place-items: center;
+  padding: 0;
+}
+/* บล็อกรายการย่อย: แถวหลัก (รูป/ชื่อ/EN/ลบ) + ช่องรายละเอียดเพิ่มเติม */
+.svc-item-block { margin-bottom: 12px; }
+.svc-item-block .svc-item-row { margin-bottom: 6px; }
+.si-detail {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  min-height: 46px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+}
+.si-detail:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+/* ช่องรายละเอียด 2 ภาษา (ไทย | English) ข้างกัน */
+.si-detail-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+@media (max-width: 640px) { .si-detail-row { grid-template-columns: 1fr; } }
 .btn-remove-item {
   background: #fee2e2;
   color: #991b1b;
@@ -1089,6 +1354,8 @@ table.booking-table { width: 100%; border-collapse: collapse; min-width: 760px; 
 #svItemsErr { display: none; }
 @media (max-width: 560px) {
   .svc-item-row { grid-template-columns: 1fr 32px; }
+  .svc-item-row.has-img { grid-template-columns: 56px 1fr 32px; }
+  .svc-item-row.one-field { grid-template-columns: 1fr 32px; }
   .svc-item-row .si-en { display: none; } /* จอแคบซ่อนช่อง EN ไว้ แก้ไขผ่านจอกว้าง */
 }
 

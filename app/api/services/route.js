@@ -4,10 +4,30 @@ import core from "@/lib/core.js";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+// รูปบริการ/รายการย่อยเก็บได้ 2 แบบ:
+//   1) base64 data-URL (อัปโหลดจากหลังบ้าน) → ตัดออกจาก payload ผู้ป่วย (บวม) ดึงแยกที่ /api/service-image/<id>[?item=]
+//   2) path รูปใน public/ (เช่น /pkg-images/x.jpg — รูปโปรโมทจริงที่มากับเว็บ) → คงไว้ใน payload (เล็ก โหลด static ได้)
+// เติม hasImage ให้ทุก response เสมอ (หน้าผู้ป่วยใช้ตัดสินใจแสดงรูป)
+const isDataImg = (v) => typeof v === "string" && /^data:image\//.test(v);
+const isPathImg = (v) => typeof v === "string" && v.startsWith("/") && /\.(png|jpe?g|webp|gif|svg|avif)$/i.test(v);
+const hasImg = (v) => isDataImg(v) || isPathImg(v);
 export async function GET(request) {
   await core.ensureInit();
   const user = core.userFromRequest(request);
-  const list = user ? core.db.services : core.db.services.filter((s) => s.active !== false);
+  const base = user ? core.db.services : core.db.services.filter((s) => s.active !== false);
+  const mapItem = (it) => {
+    const hasImage = hasImg(it.image);
+    if (user) return { ...it, hasImage };
+    if (isDataImg(it.image)) { const { image, ...rest } = it; return { ...rest, hasImage }; } // ตัดเฉพาะ base64
+    return { ...it, hasImage }; // คง path ไว้
+  };
+  const list = base.map((s) => {
+    const items = Array.isArray(s.items) ? s.items.map(mapItem) : s.items;
+    const hasImage = hasImg(s.image);
+    if (user) return { ...s, items, hasImage }; // หลังบ้าน: คง image ไว้เพื่อแก้ไข + เติม hasImage
+    if (isDataImg(s.image)) { const { image, ...rest } = s; return { ...rest, items, hasImage }; } // ผู้ป่วย: ตัด base64
+    return { ...s, items, hasImage };
+  });
   return NextResponse.json({ services: list });
 }
 
@@ -23,6 +43,9 @@ export async function PUT(request) {
       return NextResponse.json({ error: `ข้อมูลบริการ "${s.name || s.id}" ไม่ครบ (ต้องมีชื่อ)` }, { status: 400 });
     if (s.items != null && !Array.isArray(s.items))
       return NextResponse.json({ error: "รายการย่อยต้องเป็นรายการ (array)" }, { status: 400 }); // ไม่มีรายการย่อย (0 รายการ) ก็ได้ — optional
+    // รูปของรายการย่อย (optional): เป็น base64 data-URL หรือ path รูปใน public/ (เช่น /pkg-images/x.jpg)
+    if (Array.isArray(s.items) && s.items.some((it) => it.image != null && it.image !== "" && !hasImg(it.image)))
+      return NextResponse.json({ error: `รูปของรายการย่อยใน "${s.name}" ไม่ถูกต้อง (ต้องเป็นไฟล์รูป)` }, { status: 400 });
     if (s.bookingMode != null && !["slot", "callback"].includes(s.bookingMode))
       return NextResponse.json({ error: "ประเภทบริการไม่ถูกต้อง (slot = เลือกวัน–เวลา / callback = ไม่มีเวลานัด)" }, { status: 400 });
     if (s.slots && (!Array.isArray(s.slots) || !s.slots.length || s.slots.some((t) => !/^\d{2}:\d{2}$/.test(t))))
@@ -44,6 +67,11 @@ export async function PUT(request) {
         s.days.every((d) => Number.isInteger(d) && d >= 0 && d <= 6) && new Set(s.days).size === s.days.length;
       if (!okDays) return NextResponse.json({ error: "วันให้บริการไม่ถูกต้อง (เลือกวัน อา–ส อย่างน้อย 1 วัน)" }, { status: 400 });
     }
+    // รูปบริการ (optional): เป็น base64 data-URL หรือ path รูปใน public/ (อย่างอื่นไม่รับ กันข้อมูลแปลก/XSS)
+    if (s.image != null && s.image !== "" && !hasImg(s.image))
+      return NextResponse.json({ error: "รูปบริการไม่ถูกต้อง (ต้องเป็นไฟล์รูป)" }, { status: 400 });
+    if (s.category != null && typeof s.category !== "string")
+      return NextResponse.json({ error: "หมวดหมู่ต้องเป็นข้อความ" }, { status: 400 });
   }
   core.db.services = body.services;
   await core.store.replaceServices();

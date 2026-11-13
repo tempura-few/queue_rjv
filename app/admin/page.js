@@ -710,7 +710,8 @@ export default function AdminPage() {
       mode: s ? (s.bookingMode || "slot") : "slot",
       icon: s ? s.icon : "🩺", name: s ? s.name : "", desc: s ? s.desc : "", cap: s ? (s.capacity || 4) : 4,
       nameEn: s ? (s.nameEn || "") : "", descEn: s ? (s.descEn || "") : "",
-      items: s ? s.items.map((i) => ({ name: i.name, nameEn: i.nameEn || "", price: i.price })) : [{ name: "", nameEn: "", price: 0 }],
+      image: s ? (s.image || "") : "", category: s ? (s.category || "") : "",
+      items: s ? s.items.map((i) => ({ name: i.name, nameEn: i.nameEn || "", price: i.price, image: i.image || "", detail: i.detail || "", detailEn: i.detailEn || "" })) : [{ name: "", nameEn: "", price: 0, image: "", detail: "", detailEn: "" }],
       slotsWorking: s && Array.isArray(s.slots) ? [...s.slots] : null,
       slotMode: s && s.slotsByDay && Object.keys(s.slotsByDay).length ? "perDay" : "uniform",
       perDay: (() => { const base = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 0: [] };
@@ -728,6 +729,7 @@ export default function AdminPage() {
     const icon = m.icon.trim() || "🩺";
     const mode = m.mode === "callback" ? "callback" : "slot";
     const nameEn = (m.nameEn || "").trim() || undefined, descEn = (m.descEn || "").trim() || undefined;
+    const image = (m.image || "").trim() || undefined, category = (m.category || "").trim() || undefined;
     // เวลาให้บริการ: perDay = ตั้งรายวัน (วันที่ไม่มีเวลา = ปิด) / uniform = วันเปิด + ชุดเวลาเดียวทุกวัน
     const perDay = mode !== "callback" && m.slotMode === "perDay";
     const perDayObj = {};
@@ -738,8 +740,8 @@ export default function AdminPage() {
     if (mode !== "callback" && !dayList.length) { alert(perDay ? "ต้องตั้งเวลาอย่างน้อย 1 วัน (โหมดรายวัน)" : "ต้องเลือกวันให้บริการอย่างน้อย 1 วัน"); return; }
     if (m.id) {
       const s = list.find((x) => x.id === m.id);
-      Object.assign(s, { icon, name: m.name.trim(), desc: m.desc.trim(), nameEn, descEn, capacity: Math.min(99, Math.max(1, parseInt(m.cap, 10) || 4)), bookingMode: mode });
-      s.items = rows.map((r, idx) => ({ id: s.items[idx] ? s.items[idx].id : `${s.id}-it${idx}-${Date.now().toString(36)}`, name: r.name.trim(), nameEn: (r.nameEn || "").trim() || undefined, price: Math.max(0, parseInt(r.price, 10) || 0) }));
+      Object.assign(s, { icon, name: m.name.trim(), desc: m.desc.trim(), nameEn, descEn, image, category, capacity: Math.min(99, Math.max(1, parseInt(m.cap, 10) || 4)), bookingMode: mode });
+      s.items = rows.map((r, idx) => ({ id: s.items[idx] ? s.items[idx].id : `${s.id}-it${idx}-${Date.now().toString(36)}`, name: r.name.trim(), nameEn: (r.nameEn || "").trim() || undefined, image: (r.image || "").trim() || undefined, detail: (r.detail || "").trim() || undefined, detailEn: (r.detailEn || "").trim() || undefined, price: Math.max(0, parseInt(r.price, 10) || 0) }));
       if (mode !== "callback") {
         if (perDay) { s.slotsByDay = perDayObj; delete s.slots; }
         else { if (m.slotsWorking !== null) s.slots = [...m.slotsWorking]; else delete s.slots; delete s.slotsByDay; }
@@ -748,8 +750,8 @@ export default function AdminPage() {
     } else {
       const id = "svc-" + Date.now().toString(36);
       list.push({
-        id, icon, name: m.name.trim(), desc: m.desc.trim(), nameEn, descEn, capacity: Math.min(99, Math.max(1, parseInt(m.cap, 10) || 4)), bookingMode: mode,
-        items: rows.map((r, idx) => ({ id: `${id}-${idx}`, name: r.name.trim(), nameEn: (r.nameEn || "").trim() || undefined, price: Math.max(0, parseInt(r.price, 10) || 0) })),
+        id, icon, name: m.name.trim(), desc: m.desc.trim(), nameEn, descEn, image, category, capacity: Math.min(99, Math.max(1, parseInt(m.cap, 10) || 4)), bookingMode: mode,
+        items: rows.map((r, idx) => ({ id: `${id}-${idx}`, name: r.name.trim(), nameEn: (r.nameEn || "").trim() || undefined, image: (r.image || "").trim() || undefined, detail: (r.detail || "").trim() || undefined, detailEn: (r.detailEn || "").trim() || undefined, price: Math.max(0, parseInt(r.price, 10) || 0) })),
         ...(mode !== "callback"
           ? (perDay
             ? { slotsByDay: perDayObj }
@@ -761,6 +763,50 @@ export default function AdminPage() {
     try {
       await saveServicesList(list);
       setSvcModal(null);
+    } catch (err) { alert(err.message); }
+  }
+  // อ่านไฟล์รูป → ย่อให้กว้างไม่เกิน MAX_W แล้ว export เป็น JPEG base64 data-URL
+  // (กันข้อมูลบวมในฐานข้อมูล — รูปใหญ่หลาย MB จะเหลือหลัก ~100KB)
+  function readImageAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("ไฟล์ไม่ใช่รูปที่รองรับ (ใช้ JPG/PNG/WebP)"));
+        img.onload = () => {
+          const MAX_W = 900;
+          const scale = Math.min(1, MAX_W / (img.width || 1));
+          const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h); // พื้นขาว — กัน PNG โปร่งใสกลายเป็นดำตอนแปลง JPEG
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", 0.82));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  async function onSvcImagePick(e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // reset ให้เลือกไฟล์เดิมซ้ำได้
+    if (!file) return;
+    try {
+      const dataUrl = await readImageAsDataUrl(file);
+      setSvcModal((m) => ({ ...m, image: dataUrl }));
+    } catch (err) { alert(err.message); }
+  }
+  // รูปรายการย่อย — ย่อ/แปลงเหมือนรูปบริการ แล้วเก็บลง item.image ของแถวที่ idx
+  async function onItemImagePick(idx, e) {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const dataUrl = await readImageAsDataUrl(file);
+      setSvcModal((m) => ({ ...m, items: m.items.map((x, i) => (i === idx ? { ...x, image: dataUrl } : x)) }));
     } catch (err) { alert(err.message); }
   }
   async function svcAction(act, id) {
@@ -1803,7 +1849,7 @@ export default function AdminPage() {
                     ตัวเลือก "ช่องทาง — ผู้ป่วยรู้จัก/มาจาก" ในหน้ารับคิว walk-in — เช่น Facebook, LINE, Google, เพื่อนแนะนำ
                   </p>
                   {chEdit.map((c, idx) => (
-                    <div className="svc-item-row" key={idx}>
+                    <div className="svc-item-row one-field" key={idx}>
                       <input className="form-input" placeholder="ชื่อช่องทาง เช่น Facebook" value={c}
                         onChange={(e) => setChEdit(chEdit.map((x, i) => i === idx ? e.target.value : x))} />
                       <button type="button" className="btn-remove-item" title="ลบรายการนี้"
@@ -2232,7 +2278,7 @@ export default function AdminPage() {
       </Modal>
 
       {/* โมดัลเพิ่ม/แก้ไขบริการ */}
-      <Modal show={!!svcModal} onClose={() => setSvcModal(null)}>
+      <Modal show={!!svcModal} onClose={() => setSvcModal(null)} wide>
         {svcModal && (
           <>
             <h2>{svcModal.id ? <><IconPencil /> แก้ไขบริการ</> : <><IconPlus /> เพิ่มบริการใหม่</>}</h2>
@@ -2261,6 +2307,23 @@ export default function AdminPage() {
                 </div>
                 <div className="form-field"><label>คำอธิบาย — English</label>
                   <input className="form-input" placeholder="Annual health check-up packages…" value={svcModal.descEn} onChange={(e) => setSvcModal({ ...svcModal, descEn: e.target.value })} />
+                </div>
+                <div className="form-field"><label>หมวดหมู่ (แสดงเป็นแท็บกรองบนหน้าจอง — เว้นว่างได้)</label>
+                  <input className="form-input" placeholder="เช่น ตรวจสุขภาพ, ทันตกรรม, ความงาม" value={svcModal.category} onChange={(e) => setSvcModal({ ...svcModal, category: e.target.value })} />
+                </div>
+                <div className="form-field"><label>รูปบริการ (แสดงบนการ์ดหน้าแรก/หน้าจอง — ไม่บังคับ)</label>
+                  <div className="svc-img-row">
+                    <div className="svc-img-preview">
+                      {svcModal.image
+                        ? <img src={svcModal.image} alt="รูปบริการ" />
+                        : <span className="svc-img-empty"><SvcIcon icon={svcModal.icon || "🩺"} size="2.2em" /></span>}
+                    </div>
+                    <div className="svc-img-actions">
+                      <label className="btn btn-ghost btn-sm">เลือกรูป…<input type="file" accept="image/*" hidden onChange={onSvcImagePick} /></label>
+                      {svcModal.image && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSvcModal({ ...svcModal, image: "" })}>ลบรูป</button>}
+                      <span className="hint" style={{ display: "block", fontSize: "0.8rem" }}>ระบบย่อรูปให้อัตโนมัติ (กว้างไม่เกิน 900px) เพื่อไม่ให้ข้อมูลบวม — ไม่มีรูปจะแสดงพื้นไล่สี+ไอคอนแทน</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="form-field"><label>ประเภทการรับคิว *</label>
                   <select className="form-select" value={svcModal.mode} onChange={(e) => setSvcModal({ ...svcModal, mode: e.target.value })}>
@@ -2380,15 +2443,39 @@ export default function AdminPage() {
                   <label>รายการย่อย (ถ้ามี — ไม่ใส่ก็ได้ บริการไม่มีรายการย่อยก็จองได้)</label>
                   <div>
                     {svcModal.items.map((it, idx) => (
-                      <div className="svc-item-row" key={idx}>
-                        <input className="form-input si-name" placeholder="ชื่อรายการ เช่น ปรึกษาแพทย์" value={it.name}
-                          onChange={(e) => setSvcModal({ ...svcModal, items: svcModal.items.map((x, i) => i === idx ? { ...x, name: e.target.value } : x) })} />
-                        <input className="form-input si-en" placeholder="Item name (EN)" value={it.nameEn || ""}
-                          onChange={(e) => setSvcModal({ ...svcModal, items: svcModal.items.map((x, i) => i === idx ? { ...x, nameEn: e.target.value } : x) })} />
-                        <button type="button" className="btn-remove-item" title="ลบรายการนี้" onClick={() => setSvcModal({ ...svcModal, items: svcModal.items.filter((_, i) => i !== idx) })}>✕</button>
+                      <div className="svc-item-block" key={idx}>
+                        <div className="svc-item-row has-img">
+                          <span className="si-img-wrap">
+                            <label className="si-img" title={it.image ? "เปลี่ยนรูปรายการ" : "ใส่รูปรายการ (แสดงบนการ์ด)"}>
+                              {it.image
+                                ? <img src={it.image} alt="" />
+                                : <span className="si-img-ph"><SvcIcon icon={svcModal.icon || "🩺"} size="1.2em" /></span>}
+                              <input type="file" accept="image/*" hidden onChange={(e) => onItemImagePick(idx, e)} />
+                            </label>
+                            {it.image && (
+                              <button type="button" className="si-img-clear" title="ลบรูป"
+                                onClick={() => setSvcModal({ ...svcModal, items: svcModal.items.map((x, i) => (i === idx ? { ...x, image: "" } : x)) })}>✕</button>
+                            )}
+                          </span>
+                          <input className="form-input si-name" placeholder="ชื่อรายการ เช่น ปรึกษาแพทย์" value={it.name}
+                            onChange={(e) => setSvcModal({ ...svcModal, items: svcModal.items.map((x, i) => i === idx ? { ...x, name: e.target.value } : x) })} />
+                          <input className="form-input si-en" placeholder="Item name (EN)" value={it.nameEn || ""}
+                            onChange={(e) => setSvcModal({ ...svcModal, items: svcModal.items.map((x, i) => i === idx ? { ...x, nameEn: e.target.value } : x) })} />
+                          <button type="button" className="btn-remove-item" title="ลบรายการนี้" onClick={() => setSvcModal({ ...svcModal, items: svcModal.items.filter((_, i) => i !== idx) })}>✕</button>
+                        </div>
+                        <div className="si-detail-row">
+                          <textarea className="form-input si-detail" rows={2}
+                            placeholder="รายละเอียด (ไทย) เช่น สิ่งที่ได้ · การเตรียมตัว · ระยะเวลา · เงื่อนไข"
+                            value={it.detail || ""}
+                            onChange={(e) => setSvcModal({ ...svcModal, items: svcModal.items.map((x, i) => i === idx ? { ...x, detail: e.target.value } : x) })} />
+                          <textarea className="form-input si-detail" rows={2}
+                            placeholder="Details (English) — shown when patient switches to EN/MM"
+                            value={it.detailEn || ""}
+                            onChange={(e) => setSvcModal({ ...svcModal, items: svcModal.items.map((x, i) => i === idx ? { ...x, detailEn: e.target.value } : x) })} />
+                        </div>
                       </div>
                     ))}
-                    <button className="btn btn-ghost btn-sm" type="button" style={{ marginTop: 4 }} onClick={() => setSvcModal({ ...svcModal, items: [...svcModal.items, { name: "", nameEn: "", price: 0 }] })}>+ เพิ่มรายการ</button>
+                    <button className="btn btn-ghost btn-sm" type="button" style={{ marginTop: 4 }} onClick={() => setSvcModal({ ...svcModal, items: [...svcModal.items, { name: "", nameEn: "", price: 0, image: "", detail: "", detailEn: "" }] })}>+ เพิ่มรายการ</button>
                   </div>
                 </div>
               </div>

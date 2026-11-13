@@ -80,4 +80,15 @@ export {
 // ไอคอนหูฟังแพทย์ (สี) — ใช้เป็น Twemoji เพราะ Flat Color ไม่มี
 export const StethoscopeIcon = ({ size = "1em", ...rest }) => <SvcIcon icon="🩺" size={size} {...rest} />;
 
+// ไอคอนแว่นขยาย+ (ดูรูปใหญ่ / lightbox) — วาดเองเพราะชุด Flat Color ไม่มีแบบที่ตรง
+export const ZoomIcon = ({ size = "18px", ...rest }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.2"
+    strokeLinecap="round" strokeLinejoin="round" aria-hidden {...rest}>
+    <circle cx="10.5" cy="10.5" r="6.5" />
+    <line x1="15.6" y1="15.6" x2="21" y2="21" />
+    <line x1="10.5" y1="7.8" x2="10.5" y2="13.2" />
+    <line x1="7.8" y1="10.5" x2="13.2" y2="10.5" />
+  </svg>
+);
+
 export default SvcIcon;

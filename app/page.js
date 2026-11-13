@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader.js";
-import { StethoscopeIcon, IconSearch, SvcIcon } from "@/components/Icon.js";
+import { StethoscopeIcon, IconSearch, SvcIcon, ZoomIcon } from "@/components/Icon.js";
 import SiteFooter from "@/components/SiteFooter.js";
 import { api } from "@/lib/client.js";
 import { CONFIG } from "@/lib/config.js";
@@ -22,7 +22,7 @@ const T = {
     svcSub: "คลิกเพื่อเริ่มจองคิว — เลือกวัน เวลา และกรอกข้อมูลจบในหน้าเดียว",
     loading: "กำลังโหลดบริการ…",
     loadErr: "โหลดบริการไม่สำเร็จ ลองรีเฟรชอีกครั้ง",
-    empty: "ขณะนี้ยังไม่เปิดให้จองออนไลน์",
+    empty: "ขณะนี้ยังไม่เปิดให้จองออนไลน์", zoomHint: "ดูรูปใหญ่",
     book: "จองคิว →",
     stepsTitle: "ใช้งานง่ายใน 3 ขั้นตอน",
     stepsSub: "ออกแบบให้คนไข้จองเองจบภายใน 1 นาที จากมือถือ",
@@ -46,7 +46,7 @@ const T = {
     svcSub: "Click to start booking — pick a date, time and fill in your details in one page",
     loading: "Loading services…",
     loadErr: "Could not load services. Please refresh and try again.",
-    empty: "Online booking is not available at the moment.",
+    empty: "Online booking is not available at the moment.", zoomHint: "View larger",
     book: "Book now →",
     stepsTitle: "Easy as 1–2–3",
     stepsSub: "Designed so patients can self-book in under a minute from a phone",
@@ -70,7 +70,7 @@ const T = {
     svcSub: "နှိပ်၍ စတင်စာရင်းသွင်းပါ — ရက်စွဲ၊ အချိန်နှင့် ကိုယ်ရေးအချက်အလက်များကို စာမျက်နှာတစ်ခုတည်းဖြင့် ဖြည့်နိုင်သည်",
     loading: "ဝန်ဆောင်မှုများ ရယူနေသည်…",
     loadErr: "ဝန်ဆောင်မှုများ ရယူမရနိုင်ပါ — ပြန်လည်ဖွင့်၍ ထပ်စမ်းကြည့်ပါ",
-    empty: "လက်ရှိတွင် အွန်လိုင်းဖြင့် စာရင်းသွင်းခြင်း မဖွင့်ရသေးပါ",
+    empty: "လက်ရှိတွင် အွန်လိုင်းဖြင့် စာရင်းသွင်းခြင်း မဖွင့်ရသေးပါ", zoomHint: "ပုံကြီးကြည့်ရန်",
     book: "စာရင်းသွင်းရန် →",
     stepsTitle: "အဆင့် ၃ ဆင့်ဖြင့် အသုံးပြုရလွယ်ကူသည်",
     stepsSub: "လူနာများ မိနစ် ၁ အတွင်း ဖုန်းဖြင့် ကိုယ်တိုင် စာရင်းသွင်းနိုင်ရန် ဒီဇိုင်းထုတ်ထားသည်",
@@ -93,6 +93,17 @@ export default function HomePage() {
   const [services, setServices] = useState(null);
   const [error, setError] = useState("");
   const [lookup, setLookup] = useState("");
+  const [lightbox, setLightbox] = useState(null); // {src, name, detail} — รูปที่เปิดดูแบบเต็มจอ
+
+  // Lightbox: กด ESC เพื่อปิด + ล็อก scroll ของ body ขณะเปิดรูปใหญ่
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e) => { if (e.key === "Escape") setLightbox(null); };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prevOverflow; };
+  }, [lightbox]);
 
   function checkBooking(e) {
     e.preventDefault();
@@ -116,7 +127,7 @@ export default function HomePage() {
           <h1>{L.h1a}<br />{L.h1b}</h1>
           <p>{C.tagline}</p>
           <div className="hero-actions">
-            <a className="btn btn-primary" href="#services">{L.cta}</a>
+            <Link className="btn btn-primary" href="/booking">{L.cta}</Link>
           </div>
           {/* กลับมาดูการจองอีกครั้งด้วยรหัส — เผื่อผู้จองปิด/รีเฟรชหน้าสำเร็จไปแล้ว */}
           <form className="lookup-box" onSubmit={checkBooking}>
@@ -135,14 +146,27 @@ export default function HomePage() {
           {services === null && !error && <p className="hint">{L.loading}</p>}
           {error && <p className="hint">{error}</p>}
           {services && services.length === 0 && <p className="hint">{L.empty}</p>}
-          {services && services.map((s) => (
+          {services && services.map((s) => {
+            const imgSrc = (s.image && s.image.startsWith("/")) ? s.image : `/api/service-image/${s.id}`;
+            return (
             <Link className="service-card" key={s.id} href={`/booking?service=${s.id}`}>
-              <span className="service-icon"><SvcIcon icon={s.icon} /></span>
+              <span className="svc-media">
+                {s.hasImage
+                  ? <img src={imgSrc} alt={pickSvc(lang, s.name, s.nameEn)} />
+                  : <span className="svc-media-fallback"><SvcIcon icon={s.icon} /></span>}
+                {s.hasImage && (
+                  <button type="button" className="pkg-zoom" title={L.zoomHint} aria-label={L.zoomHint}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLightbox({ src: imgSrc, name: pickSvc(lang, s.name, s.nameEn), detail: pickSvc(lang, s.desc, s.descEn) }); }}>
+                    <ZoomIcon />
+                  </button>
+                )}
+              </span>
               <h3>{pickSvc(lang, s.name, s.nameEn)}</h3>
               <p>{pickSvc(lang, s.desc, s.descEn)}</p>
               <span className="service-cta">{L.book}</span>
             </Link>
-          ))}
+            );
+          })}
         </div>
 
         <h2 className="section-title">{L.stepsTitle}</h2>
@@ -153,6 +177,23 @@ export default function HomePage() {
           ))}
         </div>
       </main>
+
+      {/* Lightbox — กดปุ่มแว่นขยายบนรูปบริการเพื่อเปิดดูภาพใหญ่เต็มจอ (ปิด: คลิกนอก / ESC / ปุ่ม ✕) */}
+      {lightbox && (
+        <div className="lightbox-overlay" role="dialog" aria-modal="true" aria-label={L.zoomHint}
+          onClick={(e) => { if (e.target === e.currentTarget) setLightbox(null); }}>
+          <button type="button" className="lightbox-close" aria-label="Close" onClick={() => setLightbox(null)}>✕</button>
+          <div className="lightbox-box" onClick={(e) => e.stopPropagation()}>
+            <img src={lightbox.src} alt={lightbox.name || ""} />
+            {(lightbox.name || lightbox.detail) && (
+              <div className="lightbox-info">
+                {lightbox.name && <h3>{lightbox.name}</h3>}
+                {lightbox.detail && <p>{lightbox.detail}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <SiteFooter withPhone />
     </>

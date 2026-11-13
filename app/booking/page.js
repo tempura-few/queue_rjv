@@ -8,7 +8,7 @@ import ThDatePicker from "@/components/ThDatePicker.js";
 import { api, toISO, phoneOk, emailOk, useEmbed, svcDays, fmtDays } from "@/lib/client.js";
 import { CONFIG } from "@/lib/config.js";
 import { useLang, fmtFull, tErr, pickSvc } from "@/lib/i18n.js";
-import { IconLock, IconWarn, IconPhone, IconMail, SvcIcon } from "@/components/Icon.js";
+import { IconLock, IconWarn, IconPhone, IconMail, SvcIcon, ZoomIcon } from "@/components/Icon.js";
 
 // ข้อความหน้าจอง 3 ภาษา — สลับได้จากปุ่มบนหัวเว็บ (จำค่าไว้ในเครื่องของผู้ใช้)
 const T = {
@@ -20,7 +20,8 @@ const T = {
     subCallback: "เลือกบริการ กรอกข้อมูลติดต่อ แล้วรอเจ้าหน้าที่โทรกลับนัดวัน–เวลาให้",
     subSlot: "กรอกข้อมูล 3 ขั้นตอน ใช้เวลาไม่ถึง 1 นาที",
     s1h2: "เลือกบริการที่ต้องการ", s1hint: "เลือกหมวดบริการ แล้วเลือกรายการที่ต้องการจอง", itemLabel: "รายการ",
-    s2h2: "เลือกวันและเวลา", s2hint: "เลือกวันที่สะดวก แล้วเลือกช่วงเวลาที่ยังว่าง", dateLabel: "เลือกวันนัด",
+    catAll: "ทั้งหมด", pkgCount: (n) => `รวม ${n} รายการ`, zoomHint: "ดูรูปใหญ่", select: "เลือก",
+    s2h2: "เลือกวันและเวลา", s2hint: "เลือกวันที่สะดวก แล้วเลือกช่วงเวลาที่ยังว่าง", dateLabel: "เลือกวันนัด", selPkg: "แพ็กเกจที่เลือก",
     datePicked: "วันที่เลือก: ", dateRange: "เลือกได้ตั้งแต่วันนี้จนถึงอีก ",
     dateRangeSuffix: " วันข้างหน้า",
     openDaysHint: (d) => <>📅 บริการนี้เปิดให้บริการเฉพาะวัน <b>{d}</b> — วันอื่นจะเลือกในปฏิทินไม่ได้</>,
@@ -57,7 +58,8 @@ const T = {
     subCallback: "Choose a service and leave your contact details — our staff will call you back to arrange a date and time",
     subSlot: "3 quick steps — takes less than a minute",
     s1h2: "Choose a service", s1hint: "Pick a service category, then choose the item you want", itemLabel: "Item",
-    s2h2: "Choose date & time", s2hint: "Pick a convenient date, then choose an available time", dateLabel: "Appointment date",
+    catAll: "All", pkgCount: (n) => `${n} items included`, zoomHint: "View larger", select: "Select",
+    s2h2: "Choose date & time", s2hint: "Pick a convenient date, then choose an available time", dateLabel: "Appointment date", selPkg: "Selected package",
     datePicked: "Selected: ", dateRange: "You can book from today up to ",
     dateRangeSuffix: " days ahead",
     openDaysHint: (d) => <>📅 This service is available only on <b>{d}</b> — other days are disabled in the calendar</>,
@@ -94,7 +96,8 @@ const T = {
     subCallback: "ဝန်ဆောင်မှု ရွေးပြီး ဆက်သွယ်ရန် အချက်အလက် ဖြည့်ပါ — ဝန်ထမ်းမှ ပြန်ခေါ်၍ ရက်စွဲ–အချိန် သတ်မှတ်ပေးမည်",
     subSlot: "အဆင့် ၃ ဆင့်ဖြင့် ဖြည့်ပါ — ၁ မိနစ်လည်း မကျော်ပါ",
     s1h2: "လိုအပ်သော ဝန်ဆောင်မှုကို ရွေးပါ", s1hint: "ဝန်ဆောင်မှု အမျိုးအစား ရွေးပြီးလျှင် စာရင်းသွင်းလိုသော အကြောင်းအရာကို ရွေးပါ", itemLabel: "အကြောင်းအရာ",
-    s2h2: "ရက်စွဲနှင့် အချိန် ရွေးပါ", s2hint: "သင့်ကို အဆင်ပြေသော ရက်စွဲကို ရွေးပြီး ကျန်ရှိနေသော အချိန်ကို ရွေးပါ", dateLabel: "သွားရောက်မည့် ရက်စွဲ",
+    catAll: "အားလုံး", pkgCount: (n) => `${n} များ ပါဝင်သည်`, zoomHint: "ပုံကြီးကြည့်ရန်", select: "ရွေးရန်",
+    s2h2: "ရက်စွဲနှင့် အချိန် ရွေးပါ", s2hint: "သင့်ကို အဆင်ပြေသော ရက်စွဲကို ရွေးပြီး ကျန်ရှိနေသော အချိန်ကို ရွေးပါ", dateLabel: "သွားရောက်မည့် ရက်စွဲ", selPkg: "ရွေးထားသော ပက်ကေ့ချ်",
     datePicked: "ရွေးချယ်ထားသော ရက်စွဲ: ", dateRange: "ယနေ့မှစ၍ ",
     dateRangeSuffix: " ရက်အတွင်း ရွေးနိုင်သည်",
     openDaysHint: (d) => <>📅 ဤဝန်ဆောင်မှုသည် <b>{d}</b> သာ ဖွင့်ပေးသည် — အခြားရက်များကို ပြက္ခဒိန်တွင် ရွေး၍ မရပါ</>,
@@ -123,15 +126,6 @@ const T = {
       ["၆။ သင့်အခွင့်အရေး: ", `သင့်အချက်အလက်ကို ကြည့်ရှုခွင့်/မိတ္တူယူခွင့်၊ ပြင်ဆင်ပေးရန်၊ ဖျက်ပေးရန်နှင့် သဘောတူညီမှု ပြန်ရုပ်သိမ်းရန် တောင်းဆိုနိုင်သည် — ဆေးရုံ ဝန်ဆောင်မှုကောင်တာတွင်ဖြစ်စေ၊ ${CONFIG.phone} သို့ ဖုန်းဆက်၍ဖြစ်စေ ဆက်သွယ်ပါ — သဘောမတူပါက စနစ်က သင့်အတွက် အမှတ်စဉ် စီစဉ်ပေး၍ မရပါ`],
     ],
   },
-};
-
-// สิทธิการรักษา (ค่าเริ่มต้นจาก config/หลังบ้าน เป็นไทย) — แปลเป็นพม่าสำหรับโหมด MY, ที่แปลไม่ได้แสดงอังกฤษหรือไทยตามลำดับ
-const RIGHTS_MY = {
-  "ชำระเงินเอง": "ကိုယ်တိုင် ငွေချေသည်",
-  "ประกันสังคม": "လူမှုဖူလုံရေး အာမခံ",
-  "หลักประกันสุขภาพ (บัตรทอง)": "ကျန်းမာရေး အာမခံ (ရွှေကတ်)",
-  "ประกันเอกชน": "ပုဂ္ဂလိက အာမခံ",
-  "อื่น ๆ": "အခြား",
 };
 
 // วันให้บริการแบบย่อภาษาอังกฤษ เช่น Mon–Fri (โครงสร้างเดียวกับ fmtDays ของฝั่งไทย)
@@ -170,18 +164,18 @@ export default function BookingPage() {
   const L = T[lang];
   const [services, setServices] = useState([]);
   const [daysAheadCfg, setDaysAheadCfg] = useState(CONFIG.daysAhead || 14);
-  // สิทธิการรักษา [{th, en}] — โหลดจากค่าตั้งหลังบ้าน (fallback ไปค่าเริ่มต้นใน config ถ้ายังไม่ได้ตั้ง)
-  const [rightsOpts, setRightsOpts] = useState([]);
   const [errMsg, setErrMsg] = useState("");
   const [showPdpa, setShowPdpa] = useState(false); // popup รายละเอียดการคุ้มครองข้อมูล (PDPA มาตรา 23)
   const [step, setStep] = useState(1);
   const [serviceId, setServiceId] = useState(null);
   const [itemId, setItemId] = useState(null);
+  const [catFilter, setCatFilter] = useState(""); // แท็บกรองหมวดหมู่ ("" = ทั้งหมด)
+  const [lightbox, setLightbox] = useState(null); // {src, name, detail} — รูปที่เปิดดูแบบเต็มจอ (lightbox)
   const [dateISO, setDateISO] = useState("");
   const [time, setTime] = useState(null);
   const [availability, setAvailability] = useState({});
   // ฟอร์มขั้นตอน 3
-  const [form, setForm] = useState({ name: "", contact: "", rights: CONFIG.rightsOptions[0], note: "", consent: false });
+  const [form, setForm] = useState({ name: "", contact: "", note: "", consent: false });
   const [touched, setTouched] = useState({});
   const [busy, setBusy] = useState(false);
 
@@ -200,20 +194,31 @@ export default function BookingPage() {
     document.title = L.title;
   }, [lang]);
 
+  // Lightbox: กด ESC เพื่อปิด + ล็อก scroll ของ body ขณะเปิดรูปใหญ่
   useEffect(() => {
-    api("/api/config").then(({ daysAhead, rights }) => {
+    if (!lightbox) return;
+    const onKey = (e) => { if (e.key === "Escape") setLightbox(null); };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prevOverflow; };
+  }, [lightbox]);
+
+  useEffect(() => {
+    api("/api/config").then(({ daysAhead }) => {
       setDaysAheadCfg(daysAhead);
-      if (Array.isArray(rights) && rights.length) {
-        setRightsOpts(rights);
-        setForm((f) => (rights.some((r) => r.th === f.rights) ? f : { ...f, rights: rights[0].th }));
-      }
     }).catch(() => {});
     api("/api/services").then(({ services }) => {
       setServices(services);
-      // ลิงก์จากหน้าแรกส่ง ?service=<id> มา — เลือกให้เลย
+      // ลิงก์จากหน้าแรกส่ง ?service=<id> มา — เลือกบริการ+รายการแรก และตั้งแท็บ filter ตามหมวดหมู่ของบริการนั้นด้วย
       const preset = new URLSearchParams(window.location.search).get("service");
       const pre = preset && services.find((s) => s.id === preset && s.active !== false);
-      if (pre) { setServiceId(pre.id); setItemId(pre.items[0].id); }
+      if (pre) {
+        setServiceId(pre.id);
+        setItemId(pre.items && pre.items.length ? pre.items[0].id : null);
+        const cat = String(pre.category || "").trim();
+        if (cat) setCatFilter(cat); // filter ทำงานตามจุดที่เข้ามา (ไม่ใช่ค้างที่ "ทั้งหมด")
+      }
     }).catch((e) => setErrMsg(e.message));
   }, []);
 
@@ -224,11 +229,55 @@ export default function BookingPage() {
   const canProceed = step === 1 ? !!(serviceId && (noItems || itemId)) : (step === 2 && !isCallback) ? !!(dateISO && time) : true;
   const nextLabel = (isCallback ? step === 2 : step === 3) ? (busy ? L.busy : isCallback ? L.sendCb : L.confirm) : L.next;
 
+  // หมวดหมู่ที่ไม่ซ้ำ เรียงตามลำดับที่พบ — ใช้สร้างแท็บกรอง (บริการไม่ตั้งหมวดจะอยู่ใต้ "ทั้งหมด" อย่างเดียว)
+  const categories = useMemo(() => {
+    const seen = [];
+    for (const s of services) {
+      if (s.active === false) continue;
+      const c = (s.category || "").trim();
+      if (c && !seen.includes(c)) seen.push(c);
+    }
+    return seen;
+  }, [services]);
+  // การ์ด = "รายการย่อย" แต่ละใบมีรูปของตัวเอง (ตรงตามแบบที่ต้องการ) —
+  // บริการที่ไม่มีรายการย่อยจะแสดงเป็น 1 การ์ด (ใช้รูป/ชื่อบริการ) เพื่อให้ยังจองได้
+  const itemCards = (() => {
+    const cards = [];
+    for (const s of services) {
+      if (s.active === false) continue;
+      const cat = (s.category || "").trim();
+      const items = Array.isArray(s.items) ? s.items : [];
+      if (items.length) {
+        for (const it of items) {
+          cards.push({
+            key: s.id + ":" + it.id, serviceId: s.id, itemId: it.id,
+            svcName: svcName(s), cat, name: pickSvc(lang, it.name, it.nameEn),
+            price: it.price, hasImage: !!it.hasImage, image: it.image, detail: pickSvc(lang, it.detail, it.detailEn) || "", icon: s.icon,
+          });
+        }
+      } else {
+        cards.push({
+          key: s.id, serviceId: s.id, itemId: null,
+          svcName: svcName(s), cat, name: svcName(s),
+          price: null, hasImage: !!s.hasImage, image: s.image, icon: s.icon, noItems: true,
+        });
+      }
+    }
+    return cards;
+  })();
+  const visibleCards = catFilter ? itemCards.filter((c) => c.cat === catFilter) : itemCards;
+
   function pickService(id) {
     const s = services.find((x) => x.id === id);
     setServiceId(id);
     setItemId(s.items && s.items.length ? s.items[0].id : null); // บริการไม่มีรายการย่อย (optional) — ข้ามไปเลย
     setDateISO(""); setTime(null); setAvailability({});
+  }
+  // คลิกเช็กลิสต์รายการในการ์ด — เลือกรายการนั้น (ถ้าเปลี่ยนบริการด้วยให้รีเซ็ตวัน/เวลาเหมือน pickService)
+  function pickItem(sid, iid) {
+    if (sid !== serviceId) { setDateISO(""); setTime(null); setAvailability({}); }
+    setServiceId(sid);
+    setItemId(iid);
   }
 
   async function pickDate(iso) {
@@ -272,7 +321,6 @@ export default function BookingPage() {
           ...(isCallback ? {} : { date: dateISO, time }),
           name: form.name.trim(),
           ...(emailOk(contactVal) ? { email: contactVal } : { phone: contactVal }),
-          rights: form.rights,
           note: form.note.trim(), consent: true,
         })});
         router.push("/success?code=" + encodeURIComponent(r.code));
@@ -286,6 +334,35 @@ export default function BookingPage() {
   const slotTimes = useMemo(() => Object.keys(availability).sort(), [availability]);
   const isToday = dateISO === toISO(new Date());
   const nowHHMM = String(new Date().getHours()).padStart(2, "0") + String(new Date().getMinutes()).padStart(2, "0");
+
+  // สรุปแพ็กเกจที่เลือก — แสดงค้างไว้ในขั้น 2 และ 3 ให้ผู้ป่วยเห็นตลอดว่ากำลังจองอะไร
+  // (รูป: path ใช้ตรง ๆ / base64 ถูกตัดออกจาก payload ผู้ป่วยแล้วจึงดึงผ่าน endpoint)
+  const sumIsItem = !!item;
+  const sumObj = item || service;
+  const sumImg = sumObj && sumObj.image && String(sumObj.image).startsWith("/")
+    ? sumObj.image
+    : (sumObj && sumObj.hasImage
+      ? (sumIsItem ? `/api/service-image/${serviceId}?item=${itemId}` : `/api/service-image/${serviceId}`)
+      : null);
+  const sumName = item ? pickSvc(lang, item.name, item.nameEn) : (service ? svcName(service) : "");
+  const sumPrice = item ? item.price : null;
+  const sumDetail = (item && pickSvc(lang, item.detail, item.detailEn)) || "";
+  const selectedSummary = service ? (
+    <div className="sel-summary-wrap">
+      <span className="sel-summary-label">{L.selPkg}</span>
+      <div className="sel-summary">
+        <div className="sel-summary-media">
+          {sumImg ? <img src={sumImg} alt={sumName} /> : <span className="sel-summary-fb"><SvcIcon icon={service.icon} size="2em" /></span>}
+        </div>
+        <div className="sel-summary-body">
+          <span className="pkg-tag">{svcName(service)}</span>
+          <h4>{sumName}</h4>
+          {sumPrice != null && Number(sumPrice) > 0 && <span className="pkg-price">฿{Number(sumPrice).toLocaleString("th-TH")}</span>}
+          {sumDetail && <p className="pkg-detail">{sumDetail}</p>}
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <>
@@ -314,23 +391,57 @@ export default function BookingPage() {
           <section className="wizard-card">
             <h2>{L.s1h2}</h2>
             <p className="hint">{L.s1hint}</p>
-            <div className="pick-grid">
-              {services.filter((s) => s.active !== false).map((s) => (
-                <button type="button" key={s.id} className={"pick-card" + (s.id === serviceId ? " selected" : "")} onClick={() => pickService(s.id)}>
-                  <span className="pi"><SvcIcon icon={s.icon} /></span>
-                  <span><h4>{svcName(s)}</h4><span className="d">{(pickSvc(lang, s.desc, s.descEn) || "").slice(0, 46)}…</span></span>
-                </button>
-              ))}
-            </div>
-            {service && !!service.items.length && (
-              <div className="item-row" style={{ display: "block" }}>
-                <label htmlFor="itemSelect">{L.itemLabel}</label>
-                <select className="item-select" id="itemSelect" value={itemId} onChange={(e) => setItemId(e.target.value)}>
-                  {service.items.map((i) => <option key={i.id} value={i.id}>{pickSvc(lang, i.name, i.nameEn)}</option>)}
-                </select>
-                <div className="item-price">{item ? pickSvc(lang, item.name, item.nameEn) : ""}</div>
+            {categories.length > 0 && (
+              <div className="cat-tabs" role="tablist" aria-label={L.s1h2}>
+                <button type="button" role="tab" aria-selected={catFilter === ""} className={"cat-tab" + (catFilter === "" ? " active" : "")} onClick={() => setCatFilter("")}>{L.catAll}</button>
+                {categories.map((c) => (
+                  <button type="button" role="tab" key={c} aria-selected={catFilter === c} className={"cat-tab" + (catFilter === c ? " active" : "")} onClick={() => setCatFilter(c)}>{c}</button>
+                ))}
               </div>
             )}
+            <div className="pkg-grid">
+              {visibleCards.map((c) => {
+                // รูป path (public/) ใช้ตรง ๆ — รูป base64 (ถูกตัดออกจาก payload ผู้ป่วย) ดึงผ่าน endpoint
+                const imgSrc = (c.image && c.image.startsWith("/"))
+                  ? c.image
+                  : (c.itemId != null ? `/api/service-image/${c.serviceId}?item=${c.itemId}` : `/api/service-image/${c.serviceId}`);
+                // คลิกการ์ดหรือปุ่ม "เลือก" = เลือกรายการนี้แล้วไปขั้นถัดไปเลย (ปุ่มแว่นขยาย = ดูรูปใหญ่)
+                const doSelect = () => {
+                  if (c.itemId != null) pickItem(c.serviceId, c.itemId); else pickService(c.serviceId);
+                  setStep(2); window.scrollTo({ top: 0, behavior: "smooth" });
+                };
+                return (
+                  <div key={c.key} role="button" tabIndex={0}
+                    className="pkg-card"
+                    onClick={doSelect}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); doSelect(); } }}>
+                    <div className="pkg-media">
+                      {c.hasImage
+                        ? <img src={imgSrc} alt={c.name} />
+                        : <span className="pkg-media-fallback"><SvcIcon icon={c.icon} size="3em" /></span>}
+                      {c.hasImage && (
+                        <button type="button" className="pkg-zoom" title={L.zoomHint} aria-label={L.zoomHint}
+                          onClick={(e) => { e.stopPropagation(); setLightbox({ src: imgSrc, name: c.name, detail: c.detail }); }}>
+                          <ZoomIcon />
+                        </button>
+                      )}
+                    </div>
+                    <div className="pkg-body">
+                      <span className="pkg-tag">{c.svcName}</span>
+                      <h4>{c.name}</h4>
+                      {c.price != null && Number(c.price) > 0 && <span className="pkg-price">฿{Number(c.price).toLocaleString("th-TH")}</span>}
+                      {c.detail && <p className="pkg-detail">{c.detail}</p>}
+                    </div>
+                    <div className="pkg-foot">
+                      <button type="button" className="pkg-select"
+                        onClick={(e) => { e.stopPropagation(); doSelect(); }}>
+                        {L.select}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </section>
         )}
 
@@ -338,6 +449,7 @@ export default function BookingPage() {
           <section className="wizard-card">
             <h2>{L.s2h2}</h2>
             <p className="hint">{L.s2hint}</p>
+            {selectedSummary}
             <div className="date-pick">
               <ThDatePicker
                 label={L.dateLabel}
@@ -378,6 +490,7 @@ export default function BookingPage() {
           <section className="wizard-card">
             <h2>{isCallback ? L.s3h2Callback : L.s3h2}</h2>
             <p className="hint">{isCallback ? L.s3hintCallback : L.s3hint}</p>
+            {selectedSummary}
             <div className="form-grid">
               <div className={"form-field full" + (touched.name && !form.name.trim() ? " invalid" : "")}>
                 <label htmlFor="fName">{L.fName}</label>
@@ -389,14 +502,6 @@ export default function BookingPage() {
                 <input className="form-input" id="fContact" type="text" placeholder={L.fContactPh} value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} onBlur={() => setTouched({ ...touched, contact: true })} />
                 <span className="hint" style={{ color: "var(--muted)" }}><IconPhone /> <IconMail /> {L.fContactHint}</span>
                 <span className="err">{L.fContactErr}</span>
-              </div>
-              <div className="form-field">
-                <label htmlFor="fRights">{L.fRights}</label>
-                <select className="form-select" id="fRights" value={form.rights} onChange={(e) => setForm({ ...form, rights: e.target.value })}>
-                  {(rightsOpts.length ? rightsOpts : CONFIG.rightsOptions.map((r) => ({ th: r }))).map((r) => (
-                    <option key={r.th} value={r.th}>{lang === "my" ? (RIGHTS_MY[r.th] || r.en || r.th) : lang === "en" ? (r.en || r.th) : r.th}</option>
-                  ))}
-                </select>
               </div>
               <div className="form-field full">
                 <label htmlFor="fNote">{L.fNote}</label>
@@ -415,11 +520,31 @@ export default function BookingPage() {
           </section>
         )}
 
-        <div className="wizard-nav">
-          <button className="btn btn-ghost" type="button" style={{ visibility: step === 1 ? "hidden" : "visible" }} onClick={() => setStep(step - 1)}>{L.back}</button>
-          <button className="btn btn-primary" type="button" disabled={!canProceed || busy} onClick={next}>{nextLabel}</button>
-        </div>
+        {/* แถบปุ่มล่าง: ขั้น 1 ไม่แสดง (ปุ่ม "เลือก" บนการ์ดทำหน้าที่เลือก+ไปต่อแล้ว) — แสดงตั้งแต่ขั้น 2 เป็นต้นไป */}
+        {step > 1 && (
+          <div className="wizard-nav">
+            <button className="btn btn-ghost" type="button" onClick={() => setStep(step - 1)}>{L.back}</button>
+            <button className="btn btn-primary" type="button" disabled={!canProceed || busy} onClick={next}>{nextLabel}</button>
+          </div>
+        )}
       </main>
+
+      {/* Lightbox — กดปุ่มแว่นขยายบนรูปเพื่อเปิดดูภาพใหญ่เต็มจอ + รายละเอียด (ปิด: คลิกนอก / ESC / ปุ่ม ✕) */}
+      {lightbox && (
+        <div className="lightbox-overlay" role="dialog" aria-modal="true" aria-label={L.zoomHint}
+          onClick={(e) => { if (e.target === e.currentTarget) setLightbox(null); }}>
+          <button type="button" className="lightbox-close" aria-label={L.pdpaClose} onClick={() => setLightbox(null)}>✕</button>
+          <div className="lightbox-box" onClick={(e) => e.stopPropagation()}>
+            <img src={lightbox.src} alt={lightbox.name || ""} />
+            {(lightbox.name || lightbox.detail) && (
+              <div className="lightbox-info">
+                {lightbox.name && <h3>{lightbox.name}</h3>}
+                {lightbox.detail && <p>{lightbox.detail}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* popup รายละเอียดการคุ้มครองข้อมูลส่วนบุคคล — ครบองค์ประกอบการแจ้งตาม PDPA มาตรา 23 */}
       {showPdpa && (
