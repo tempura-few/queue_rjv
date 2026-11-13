@@ -31,11 +31,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t hospital-queue:latest .
+      - name: Build Docker image (แท็กด้วย git commit)
+        run: |
+          SHA=$(git rev-parse --short HEAD)
+          echo "SHA=$SHA" >> "$GITHUB_ENV"
+          docker build \
+            --build-arg GIT_COMMIT=$SHA \
+            --label org.opencontainers.image.revision=$SHA \
+            -t hospital-queue:$SHA \
+            -t hospital-queue:latest .
 
       - name: บีบ image เป็นไฟล์เดียวพร้อมส่ง
-        run: docker save hospital-queue:latest | gzip > /tmp/queue-image.tar.gz
+        run: docker save hospital-queue:$SHA hospital-queue:latest | gzip > /tmp/queue-image.tar.gz
 
       - name: เตรียม SSH
         run: |
@@ -50,9 +57,9 @@ jobs:
           scp /tmp/queue-image.tar.gz root@"${{ secrets.SSH_HOST }}":/tmp/queue-image.tar.gz
           scp deploy/docker-compose.prod.yml root@"${{ secrets.SSH_HOST }}":/opt/queue_rjv/docker-compose.yml
 
-      - name: วาง image ใหม่และรัน (docker load + compose up)
+      - name: วาง image ใหม่และรัน (docker load + compose up — แท็กตาม commit)
         run: |
-          ssh root@"${{ secrets.SSH_HOST }}" bash -s <<'SCRIPT'
+          ssh root@"${{ secrets.SSH_HOST }}" "IMAGE_TAG=$SHA bash -s" <<'SCRIPT'
           set -euo pipefail
           cd /opt/queue_rjv
           if [ ! -f .env ]; then
@@ -61,12 +68,16 @@ jobs:
           fi
           docker load -i /tmp/queue-image.tar.gz
           rm -f /tmp/queue-image.tar.gz
+          export IMAGE_TAG   # compose ใช้ image: hospital-queue:${IMAGE_TAG:-latest}
           docker compose up -d --remove-orphans
-          # ลบ image ตัวเก่าที่ถูกแทนแล้ว (กลายเป็น <none>) — เหลือเฉพาะตัวที่รันอยู่
+          # ลบ image ตัวเก่า (แท็ก commit อื่น + <none>) — เหลือเฉพาะตัวที่รันอยู่และ latest
+          docker images --format '{{.Repository}}:{{.Tag}}' | grep '^hospital-queue:' \
+            | grep -v ":$IMAGE_TAG" | grep -v ':latest' | xargs -r docker rmi -f || true
           docker image prune -f
+          echo ">> กำลังรัน: hospital-queue:$IMAGE_TAG"
           SCRIPT
 
-      - name: ตรวจว่าแอปตอบ 200
+      - name: ตรวจว่าแอปตอบ 200 (+ เวอร์ชันที่รันอยู่)
         run: |
           sleep 10
           ssh root@"${{ secrets.SSH_HOST }}" '
@@ -75,4 +86,6 @@ jobs:
               docker logs --tail 20 hospital-queue || true
               exit 1
             fi
+            echo -n "เวอร์ชัน (commit) ที่รันอยู่: "
+            curl -fsS http://127.0.0.1:8124/api/version || echo "(ไม่พบ /api/version)"
           '

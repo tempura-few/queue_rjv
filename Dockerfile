@@ -22,6 +22,10 @@ FROM node:20-alpine AS run
 RUN apk add --no-cache tzdata
 WORKDIR /app
 ENV NODE_ENV=production PORT=8124 HOSTNAME=0.0.0.0
+# เวอร์ชันของ build (git commit สั้น) — CI ส่งมาตอน build ผ่าน --build-arg GIT_COMMIT=…
+# เช็กตัวที่รันอยู่จริงได้ที่ /api/version
+ARG GIT_COMMIT=local
+ENV GIT_COMMIT=${GIT_COMMIT}
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 # public/ ต้องติดไปด้วย — โลโก้/ไฟล์ static ถูกอ่านจากดิสก์ตอนรัน ไม่ได้ฝังใน .next

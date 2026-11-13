@@ -12,7 +12,9 @@
 
 services:
   queue:
-    image: hospital-queue:latest
+    # image ถูกแท็กด้วย git commit (สั้น) — CI ส่ง IMAGE_TAG มาตอน deploy
+    # (เช็กตัวที่รันอยู่: docker ps หรือ /api/version)
+    image: hospital-queue:${IMAGE_TAG:-latest}
     container_name: hospital-queue
     restart: unless-stopped
     network_mode: host
