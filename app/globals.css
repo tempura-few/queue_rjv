@@ -471,29 +471,36 @@ a { color: inherit; text-decoration: none; }
   padding: 28px;
   cursor: zoom-out;
 }
+/* Lightbox แบบข้าง ๆ: รูปซ้าย + แผงรายละเอียด "ขยายไปด้านขวา" */
 .lightbox-box {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  max-width: min(94vw, 920px);
-  max-height: 92vh;
-  overflow: auto;
+  align-items: stretch;
+  max-width: min(1100px, 94vw);
+  max-height: 90vh;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
   cursor: default;
 }
 .lightbox-box img {
-  max-width: 100%;
-  max-height: 68vh;
   width: auto; height: auto;
-  border-radius: 12px;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  max-width: 55%;
+  max-height: 90vh;
+  object-fit: contain;
+  display: block;
 }
 .lightbox-info {
-  background: rgba(255, 255, 255, 0.97);
-  border-radius: 12px;
-  padding: 14px 20px;
-  max-width: 100%;
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  max-height: 90vh;
+  background: #fff;
+  padding: 18px 22px;
   text-align: left;
+}
+@media (max-width: 720px) {
+  .lightbox-box { flex-direction: column; max-width: 94vw; overflow: auto; }
+  .lightbox-box img { max-width: 100%; max-height: 60vh; }
 }
 .lightbox-info h3 { margin: 0 0 6px; font-size: 1.05rem; color: var(--ink); }
 .lightbox-info p { margin: 0; white-space: pre-line; font-size: 0.92rem; line-height: 1.6; color: var(--text); }
@@ -521,9 +528,9 @@ a { color: inherit; text-decoration: none; }
 .pdl-check { color: var(--ok); font-weight: 800; flex-shrink: 0; line-height: 1.5; }
 .pdl-more { margin: 5px 0 0; color: var(--primary); font-weight: 700; font-size: 0.76rem; }
 
-/* ใน lightbox: ลิสต์ครบทุกข้อ 2 คอลัมน์ + กล่องเตือนการเตรียมตัว */
+/* ใน lightbox (แผงขวา): ลิสต์ครบทุกข้อ คอลัมน์เดียว scroll ได้ + กล่องเตือนการเตรียมตัว */
 .lb-detail .pdl-target { font-size: 0.9rem; margin-bottom: 8px; }
-.lb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 20px; }
+.lb-grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
 .lb-grid li { color: var(--text); font-size: 0.88rem; gap: 8px; }
 .lb-grid .pdl-check { color: var(--ok); }
 .pdl-prep {
@@ -536,7 +543,6 @@ a { color: inherit; text-decoration: none; }
   font-size: 0.85rem;
   line-height: 1.55;
 }
-@media (max-width: 640px) { .lb-grid { grid-template-columns: 1fr; } }
 
 /* สรุปแพ็กเกจที่เลือก — แสดงค้างไว้ในขั้นเลือกวัน–เวลา และขั้นข้อมูลผู้จอง */
 .sel-summary-wrap { margin: 0 0 18px; }
