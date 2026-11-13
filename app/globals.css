@@ -506,6 +506,13 @@ a { color: inherit; text-decoration: none; }
   line-height: 1.55;
   white-space: pre-line;
 }
+/* รายละเอียดยาว (ลิสต์รายการตรวจเต็มตามเว็บ) — พับไว้บนการ์ด/กล่องสรุป ดูครบเมื่อกดรูปใหญ่ (lightbox) */
+.pkg-card .pkg-detail, .sel-summary .pkg-detail {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 /* สรุปแพ็กเกจที่เลือก — แสดงค้างไว้ในขั้นเลือกวัน–เวลา และขั้นข้อมูลผู้จอง */
 .sel-summary-wrap { margin: 0 0 18px; }
