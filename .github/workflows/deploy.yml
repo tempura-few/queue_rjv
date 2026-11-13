@@ -70,6 +70,9 @@ jobs:
           rm -f /tmp/queue-image.tar.gz
           export IMAGE_TAG   # compose ใช้ image: hospital-queue:${IMAGE_TAG:-latest}
           docker compose up -d --remove-orphans
+          # ล้าง nginx proxy cache กัน HTML เก่าค้างหลัง deploy (เคยเกิด: s-maxage 1 ปี)
+          rm -rf /var/cache/nginx/* /var/www/wwwlogs/nginx_cache/* 2>/dev/null || true
+          nginx -s reload 2>/dev/null || systemctl reload nginx 2>/dev/null || true
           # ลบ image ตัวเก่า (แท็ก commit อื่น + <none>) — เหลือเฉพาะตัวที่รันอยู่และ latest
           docker images --format '{{.Repository}}:{{.Tag}}' | grep '^hospital-queue:' \
             | grep -v ":$IMAGE_TAG" | grep -v ':latest' | xargs -r docker rmi -f || true

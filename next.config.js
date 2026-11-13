@@ -13,13 +13,16 @@ const nextConfig = {
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
     ];
+    const noStore = { key: "Cache-Control", value: "no-store, must-revalidate" };
     return [
-      // หน้าสาธารณะ (/, /booking, /success) ไม่ใส่ X-Frame-Options — รองรับโหมด embed (?embed=1)
-      // ที่โรงพยาบาลฝังหน้าจองใน WordPress ผ่าน iframe
-      { source: "/:path*", headers: common },
-      // หน้าหลังบ้าน/ล็อกอิน: ห้ามฝัง iframe เด็ดขาด (clickjacking)
-      { source: "/admin", headers: [...common, { key: "X-Frame-Options", value: "DENY" }] },
-      { source: "/login", headers: [...common, { key: "X-Frame-Options", value: "DENY" }] },
+      // ⚠️ HTML ห้ามแคชยาว — Next.js ตั้ง s-maxage=31536000 (1 ปี) ให้หน้า static โดยดีฟอลต์
+      // ทำให้ nginx (proxy cache บนเซิร์ฟเวอร์) เก็บ "หน้าเก่า" ไว้ แม้ deploy โค้ดใหม่แล้ว (เกิดขึ้นจริง)
+      // (ยกเว้น /_next/static ที่ชื่อไฟล์เป็น hash เปลี่ยนทุก build → แคชยาวปลอดภัย ตามหลัง catch-all เพื่อ override)
+      { source: "/:path*", headers: [...common, noStore] },
+      { source: "/_next/static/:path*", headers: [...common, { key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+      // หน้าหลังบ้าน/ล็อกอิน: ห้ามฝัง iframe เด็ดขาด (clickjacking) — หน้าอื่นไม่ใส่ X-Frame-Options รองรับโหมด embed (?embed=1)
+      { source: "/admin", headers: [...common, noStore, { key: "X-Frame-Options", value: "DENY" }] },
+      { source: "/login", headers: [...common, noStore, { key: "X-Frame-Options", value: "DENY" }] },
     ];
   },
   async rewrites() {
